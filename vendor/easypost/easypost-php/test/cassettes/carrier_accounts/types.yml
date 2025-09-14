@@ -1,0 +1,78 @@
+
+-
+    request:
+        method: GET
+        url: 'https://api.easypost.com/v2/carrier_types'
+        headers:
+            Host: api.easypost.com
+            Accept-Encoding: ''
+            Accept: application/json
+            Authorization: ''
+            Content-Type: application/json
+            User-Agent: ''
+    response:
+        status:
+            code: 200
+            message: OK
+        headers:
+            x-frame-options: SAMEORIGIN
+            x-xss-protection: '1; mode=block'
+            x-content-type-options: nosniff
+            x-download-options: noopen
+            x-permitted-cross-domain-policies: none
+            referrer-policy: strict-origin-when-cross-origin
+            x-ep-request-uuid: dc4df3ba66ec73a2e2b8f2f1000ae799
+            cache-control: 'private, no-cache, no-store'
+            pragma: no-cache
+            expires: '0'
+            content-type: 'application/json; charset=utf-8'
+            content-length: '40309'
+            x-runtime: '0.071372'
+            x-node: bigweb36nuq
+            x-version-label: easypost-202409191749-7329da8f17-master
+            x-backend: easypost
+            x-proxied: ['intlb3nuq b6e1b5034c', 'extlb1nuq b6e1b5034c']
+            strict-transport-security: 'max-age=31536000; includeSubDomains; preload'
+        body: '[{"object":"CarrierType","type":"UpsAccount","readable":"UPS","logo":null,"fields":[]},{"object":"CarrierType","type":"UpsMailInnovationsAccount","readable":"UPS Mail Innovations","logo":null,"fields":[]},{"object":"CarrierType","type":"AccurateAccount","readable":"Accurate","logo":null,"fields":[]},{"object":"CarrierType","type":"ApcAccount","readable":"APC","logo":null,"fields":[]},{"object":"CarrierType","type":"AsendiaUsaAccount","readable":"Asendia USA","logo":null,"fields":[]},{"object":"CarrierType","type":"AustraliaPostAccount","readable":"Australia Post","logo":null,"fields":[]},{"object":"CarrierType","type":"BetterTrucksAccount","readable":"Better Trucks","logo":null,"fields":[]},{"object":"CarrierType","type":"BluestreakAccount","readable":"Bluestreak","logo":null,"fields":[]},{"object":"CarrierType","type":"CanadaPostAccount","readable":"Canada Post","logo":null,"fields":[]},{"object":"CarrierType","type":"CanparAccount","readable":"Canpar","logo":null,"fields":[]},{"object":"CarrierType","type":"ColumbusLastMileAccount","readable":"CDL Last Mile Solutions","logo":null,"fields":[]},{"object":"CarrierType","type":"CourierExpressAccount","readable":"Courier Express","logo":null,"fields":[]},{"object":"CarrierType","type":"CouriersPleaseAccount","readable":"CouriersPlease","logo":null,"fields":[]},{"object":"CarrierType","type":"CSLogisticsAccount","readable":"CSLogistics","logo":null,"fields":[]},{"object":"CarrierType","type":"DaiPostAccount","readable":"Dai Post","logo":null,"fields":[]},{"object":"CarrierType","type":"DeliverItAccount","readable":"Deliver-It","logo":null,"fields":[]},{"object":"CarrierType","type":"DeutschePostUKAccount","readable":"Deutsche Post UK","logo":null,"fields":[]},{"object":"CarrierType","type":"DhlEcsAccount","readable":"DHL eCommerce","logo":null,"fields":[]},{"object":"CarrierType","type":"DhlExpressAccount","readable":"DHL Express","logo":null,"fields":[]},{"object":"CarrierType","type":"DhlPaketAccount","readable":"DHL Paket","logo":null,"fields":[]},{"object":"CarrierType","type":"DhlParcelAccount","readable":"DHL Parcel","logo":null,"fields":[]},{"object":"CarrierType","type":"DoorDashAccount","readable":"DoorDash","logo":null,"fields":[]},{"object":"CarrierType","type":"DouglasAccount","readable":"Douglas","logo":null,"fields":[]},{"object":"CarrierType","type":"DpdAccount","readable":"DPD","logo":null,"fields":[]},{"object":"CarrierType","type":"DpdUkAccount","readable":"DPD UK","logo":null,"fields":[]},{"object":"CarrierType","type":"DpdNlAccount","readable":"DPD NL","logo":null,"fields":[]},{"object":"CarrierType","type":"EstafetaAccount","readable":"Estafeta","logo":null,"fields":[]},{"object":"CarrierType","type":"FedexAccount","readable":"FedEx","logo":null,"fields":[]},{"object":"CarrierType","type":"FedexCrossBorderAccount","readable":"FedEx Cross Border","logo":null,"fields":[]},{"object":"CarrierType","type":"FedexMailviewAccount","readable":"FedEx MailView","logo":null,"fields":[]},{"object":"CarrierType","type":"FedexSmartpostAccount","readable":"FedEx SmartPost","logo":null,"fields":[]},{"object":"CarrierType","type":"FirstChoiceAccount","readable":"First Choice","logo":null,"fields":[]},{"object":"CarrierType","type":"FirstMileConciseAccount","readable":"First Mile","logo":null,"fields":[]},{"object":"CarrierType","type":"FlexportAccount","readable":"Flexport","logo":null,"fields":[]},{"object":"CarrierType","type":"GioAccount","readable":"Gio","logo":null,"fields":[]},{"object":"CarrierType","type":"GsoAccount","readable":"GSO","logo":null,"fields":[]},{"object":"CarrierType","type":"HailifyAccount","readable":"Hailify","logo":null,"fields":[]},{"object":"CarrierType","type":"HenryAccount","readable":"Henry","logo":null,"fields":[]},{"object":"CarrierType","type":"HermesAccount","readable":"Evri","logo":null,"fields":[]},{"object":"CarrierType","type":"InterlinkExpressAccount","readable":"Interlink Express","logo":null,"fields":[]},{"object":"CarrierType","type":"JetAccount","readable":"Jet","logo":null,"fields":[]},{"object":"CarrierType","type":"JitsuAccount","readable":"Jitsu","logo":null,"fields":[]},{"object":"CarrierType","type":"LasershipV2Account","readable":"LaserShipV2","logo":null,"fields":[]},{"object":"CarrierType","type":"LoomisExpressAccount","readable":"Loomis Express","logo":null,"fields":[]},{"object":"CarrierType","type":"LsoAccount","readable":"LSO","logo":null,"fields":[]},{"object":"CarrierType","type":"OmniParcelAccount","readable":"OmniParcel","logo":null,"fields":[]},{"object":"CarrierType","type":"OntracAccount","readable":"OnTrac","logo":null,"fields":[]},{"object":"CarrierType","type":"OntracV3Account","readable":"OnTrac V3","logo":null,"fields":[]},{"object":"CarrierType","type":"OptimaAccount","readable":"Optima","logo":null,"fields":[]},{"object":"CarrierType","type":"OsmWorldwideAccount","readable":"OSM Worldwide","logo":null,"fields":[]},{"object":"CarrierType","type":"PandionAccount","readable":"Pandion","logo":null,"fields":[]},{"object":"CarrierType","type":"ParcelForceAccount","readable":"Parcel Force","logo":null,"fields":[]},{"object":"CarrierType","type":"ParcllAccount","readable":"Cirro E-Commerce","logo":null,"fields":[]},{"object":"CarrierType","type":"PassportGlobalAccount","readable":"Passport Global","logo":null,"fields":[]},{"object":"CarrierType","type":"PurolatorAccount","readable":"Purolator","logo":null,"fields":[]},{"object":"CarrierType","type":"QuickAccount","readable":"Quick","logo":null,"fields":[]},{"object":"CarrierType","type":"RoverAccount","readable":"Rover","logo":null,"fields":[]},{"object":"CarrierType","type":"RoyalMailAccount","readable":"Royal Mail","logo":null,"fields":[]},{"object":"CarrierType","type":"RRDonnelleyAccount","readable":"ePost Global","logo":null,"fields":[]},{"object":"CarrierType","type":"SendleAccount","readable":"Sendle","logo":null,"fields":[]},{"object":"CarrierType","type":"SfExpressAccount","readable":"SF Express","logo":null,"fields":[]},{"object":"CarrierType","type":"SmartKargoAccount","readable":"SmartKargo","logo":null,"fields":[]},{"object":"CarrierType","type":"SonicAccount","readable":"Sonic","logo":null,"fields":[]},{"object":"CarrierType","type":"SpeedXAccount","readable":"SpeedX","logo":null,"fields":[]},{"object":"CarrierType","type":"SpeedeeAccount","readable":"Spee-Dee","logo":null,"fields":[]},{"object":"CarrierType","type":"SwayAccount","readable":"Sway","logo":null,"fields":[]},{"object":"CarrierType","type":"SwyftAccount","readable":"Swyft","logo":null,"fields":[]},{"object":"CarrierType","type":"TccAccount","readable":"Tcc","logo":null,"fields":[]},{"object":"CarrierType","type":"TforceConciseAccount","readable":"TForce","logo":null,"fields":[]},{"object":"CarrierType","type":"TollAccount","readable":"Toll","logo":null,"fields":[]},{"object":"CarrierType","type":"UdsAccount","readable":"UDS","logo":null,"fields":[]},{"object":"CarrierType","type":"UpsIparcelAccount","readable":"UPS i-Parcel","logo":null,"fields":[]},{"object":"CarrierType","type":"UspsAccount","readable":"USPS","logo":null,"fields":[]},{"object":"CarrierType","type":"VehoAccount","readable":"Veho","logo":null,"fields":[]}]'
+        curl_info:
+            url: 'https://api.easypost.com/v2/carrier_types'
+            content_type: 'application/json; charset=utf-8'
+            http_code: 200
+            header_size: 690
+            request_size: 290
+            filetime: -1
+            ssl_verify_result: 0
+            redirect_count: 0
+            total_time: 0.21387
+            namelookup_time: 0.001995
+            connect_time: 0.036018
+            pretransfer_time: 0.071645
+            size_upload: 0.0
+            size_download: 40309.0
+            speed_download: 188474.0
+            speed_upload: 0.0
+            download_content_length: 40309.0
+            upload_content_length: 0.0
+            starttransfer_time: 0.179352
+            redirect_time: 0.0
+            redirect_url: ''
+            primary_ip: 169.62.110.131
+            certinfo: {  }
+            primary_port: 443
+            local_ip: 192.168.1.75
+            local_port: 52442
+            http_version: 2
+            protocol: 2
+            ssl_verifyresult: 0
+            scheme: https
+            appconnect_time_us: 71606
+            connect_time_us: 36018
+            namelookup_time_us: 1995
+            pretransfer_time_us: 71645
+            redirect_time_us: 0
+            starttransfer_time_us: 179352
+            total_time_us: 213870
+            effective_method: GET
+            capath: ''
+            cainfo: ''
+    index: 0

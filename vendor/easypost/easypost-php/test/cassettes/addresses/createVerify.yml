@@ -1,0 +1,161 @@
+
+-
+    request:
+        method: POST
+        url: 'https://api.easypost.com/v2/addresses'
+        headers:
+            Host: api.easypost.com
+            Expect: ''
+            Accept-Encoding: ''
+            Accept: application/json
+            Authorization: ''
+            Content-Type: application/json
+            User-Agent: ''
+        body: '{"address":{"company":"EasyPost","street1":"000 unknown street","city":"Not A City","state":"ZZ","zip":"00001","country":"US","email":"test@example.com","phone":"5555555555"}}'
+    response:
+        status:
+            code: 201
+            message: Created
+        headers:
+            x-frame-options: SAMEORIGIN
+            x-xss-protection: '1; mode=block'
+            x-content-type-options: nosniff
+            x-download-options: noopen
+            x-permitted-cross-domain-policies: none
+            referrer-policy: strict-origin-when-cross-origin
+            x-ep-request-uuid: e181587a66bcebf6e2b8ff740086f365
+            cache-control: 'private, no-cache, no-store'
+            pragma: no-cache
+            expires: '0'
+            location: /api/v2/addresses/adr_3ec0f9db5a6411ef88f0ac1f6bc539ae
+            content-type: 'application/json; charset=utf-8'
+            content-length: '453'
+            x-runtime: '0.043613'
+            x-node: bigweb41nuq
+            x-version-label: easypost-202408141633-8ef9a7bcc9-master
+            x-backend: easypost
+            x-proxied: ['intlb3nuq c0f5e722d1', 'extlb2nuq b6e1b5034c']
+            strict-transport-security: 'max-age=31536000; includeSubDomains; preload'
+        body: '{"id":"adr_3ec0f9db5a6411ef88f0ac1f6bc539ae","object":"Address","created_at":"2024-08-14T17:40:06+00:00","updated_at":"2024-08-14T17:40:06+00:00","name":null,"company":"EasyPost","street1":"000 unknown street","street2":null,"city":"Not A City","state":"ZZ","zip":"00001","country":"US","phone":"<REDACTED>","email":"<REDACTED>","mode":"test","carrier_facility":null,"residential":null,"federal_tax_id":null,"state_tax_id":null,"verifications":[]}'
+        curl_info:
+            url: 'https://api.easypost.com/v2/addresses'
+            content_type: 'application/json; charset=utf-8'
+            http_code: 201
+            header_size: 759
+            request_size: 483
+            filetime: -1
+            ssl_verify_result: 0
+            redirect_count: 0
+            total_time: 0.142203
+            namelookup_time: 0.001719
+            connect_time: 0.031209
+            pretransfer_time: 0.06422
+            size_upload: 175.0
+            size_download: 453.0
+            speed_download: 3185.0
+            speed_upload: 1230.0
+            download_content_length: 453.0
+            upload_content_length: 175.0
+            starttransfer_time: 0.142143
+            redirect_time: 0.0
+            redirect_url: ''
+            primary_ip: 169.62.110.130
+            certinfo: {  }
+            primary_port: 443
+            local_ip: 192.168.1.75
+            local_port: 52724
+            http_version: 2
+            protocol: 2
+            ssl_verifyresult: 0
+            scheme: https
+            appconnect_time_us: 64158
+            connect_time_us: 31209
+            namelookup_time_us: 1719
+            pretransfer_time_us: 64220
+            redirect_time_us: 0
+            starttransfer_time_us: 142143
+            total_time_us: 142203
+            effective_method: POST
+            capath: ''
+            cainfo: ''
+    index: 0
+-
+    request:
+        method: POST
+        url: 'https://api.easypost.com/v2/addresses'
+        headers:
+            Host: api.easypost.com
+            Expect: ''
+            Accept-Encoding: ''
+            Accept: application/json
+            Authorization: ''
+            Content-Type: application/json
+            User-Agent: ''
+        body: '{"verify":"true","address":{"company":"EasyPost","street1":"000 unknown street","city":"Not A City","state":"ZZ","zip":"00001","country":"US","email":"test@example.com","phone":"5555555555"}}'
+    response:
+        status:
+            code: 201
+            message: Created
+        headers:
+            x-frame-options: SAMEORIGIN
+            x-xss-protection: '1; mode=block'
+            x-content-type-options: nosniff
+            x-download-options: noopen
+            x-permitted-cross-domain-policies: none
+            referrer-policy: strict-origin-when-cross-origin
+            x-ep-request-uuid: e181587666bcebf6e2b8ff750086f3a3
+            cache-control: 'private, no-cache, no-store'
+            pragma: no-cache
+            expires: '0'
+            location: /api/v2/addresses/adr_3ed90f725a6411efba51ac1f6bc53342
+            content-type: 'application/json; charset=utf-8'
+            content-length: '750'
+            x-runtime: '0.054690'
+            x-node: bigweb39nuq
+            x-version-label: easypost-202408141633-8ef9a7bcc9-master
+            x-backend: easypost
+            x-proxied: ['intlb4nuq c0f5e722d1', 'extlb2nuq b6e1b5034c']
+            strict-transport-security: 'max-age=31536000; includeSubDomains; preload'
+        body: '{"id":"adr_3ed90f725a6411efba51ac1f6bc53342","object":"Address","created_at":"2024-08-14T17:40:06+00:00","updated_at":"2024-08-14T17:40:06+00:00","name":null,"company":"EasyPost","street1":"000 unknown street","street2":null,"city":"Not A City","state":"ZZ","zip":"00001","country":"US","phone":"<REDACTED>","email":"<REDACTED>","mode":"test","carrier_facility":null,"residential":null,"federal_tax_id":null,"state_tax_id":null,"verifications":{"zip4":{"success":false,"errors":[{"code":"E.ADDRESS.NOT_FOUND","field":"address","message":"Address not found","suggestion":null}],"details":null},"delivery":{"success":false,"errors":[{"code":"E.ADDRESS.NOT_FOUND","field":"address","message":"Address not found","suggestion":null}],"details":[]}}}'
+        curl_info:
+            url: 'https://api.easypost.com/v2/addresses'
+            content_type: 'application/json; charset=utf-8'
+            http_code: 201
+            header_size: 759
+            request_size: 499
+            filetime: -1
+            ssl_verify_result: 0
+            redirect_count: 0
+            total_time: 0.153552
+            namelookup_time: 0.001965
+            connect_time: 0.031636
+            pretransfer_time: 0.065411
+            size_upload: 191.0
+            size_download: 750.0
+            speed_download: 4884.0
+            speed_upload: 1243.0
+            download_content_length: 750.0
+            upload_content_length: 191.0
+            starttransfer_time: 0.153526
+            redirect_time: 0.0
+            redirect_url: ''
+            primary_ip: 169.62.110.130
+            certinfo: {  }
+            primary_port: 443
+            local_ip: 192.168.1.75
+            local_port: 52725
+            http_version: 2
+            protocol: 2
+            ssl_verifyresult: 0
+            scheme: https
+            appconnect_time_us: 65356
+            connect_time_us: 31636
+            namelookup_time_us: 1965
+            pretransfer_time_us: 65411
+            redirect_time_us: 0
+            starttransfer_time_us: 153526
+            total_time_us: 153552
+            effective_method: POST
+            capath: ''
+            cainfo: ''
+    index: 0
