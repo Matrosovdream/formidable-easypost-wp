@@ -9,9 +9,8 @@ class FrmEasypostInit {
         // API class
         $this->include_api();
 
-        /*
-        // Endpoints
-        require_once FRM_EAP_BASE_URL.'/classes/endpoints/FrmEasypostRoutes.php';
+        // Shortcodes
+        $this->include_shortcodes();
 
         // Migrations
         $this->include_migrations();
@@ -19,22 +18,11 @@ class FrmEasypostInit {
         // Models
         $this->include_models();
 
-        // Utilities
-        $this->include_utils();
-
         // Helpers
         $this->include_helpers();
 
         // CRON
         $this->include_cron();
-
-        // Hooks
-        $this->include_hooks();
-
-        /*
-        // Shortcodes
-        $this->include_shortcodes();
-        */
 
     }
 
@@ -56,6 +44,9 @@ class FrmEasypostInit {
         // Shipment API
         require_once FRM_EAP_BASE_URL.'/classes/api/FrmEasypostShipmentApi.php';
 
+        // Address API
+        require_once FRM_EAP_BASE_URL.'/classes/api/FrmEasypostAddressApi.php';
+
     }
 
     private function include_models() {
@@ -63,20 +54,20 @@ class FrmEasypostInit {
         // Abstract model
         require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostAbstractModel.php';
 
-        // Order model
-        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostOrderModel.php';
-
         // Shipment model
         require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentModel.php';
 
-        // Carrier model
-        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostCarrierModel.php';
+        // Shipment Address model
+        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentAddressModel.php';
 
-        // Package model
-        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostPackageModel.php';
+        // Shipment Parcel model
+        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentParcelModel.php';
 
-        // Service model
-        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostServiceModel.php';
+        // Shipment Label model
+        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentLabelModel.php';
+
+        // Shipment Rate model
+        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentRateModel.php';
 
     }
 
@@ -86,26 +77,12 @@ class FrmEasypostInit {
 
     private function include_helpers() {
 
-        // Order Helper
-        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostOrderHelper.php';
-
-        // Carrier Helper
-        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostCarrierHelper.php';
-
         // Shipment Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostShipmentHelper.php';
 
     }
 
     private function include_cron() {
-
-        // Orders cron
-        require_once FRM_EAP_BASE_URL.'/classes/cron/FrmEasypostOrdersCron.php';
-        FrmEasypostOrdersCron::init();
-
-        // Carriers cron
-        require_once FRM_EAP_BASE_URL.'/classes/cron/FrmEasypostCarriersCron.php';
-        FrmEasypostCarriersCron::init();
 
         // Shipments cron
         require_once FRM_EAP_BASE_URL.'/classes/cron/FrmEasypostShipmentsCron.php';
@@ -116,8 +93,10 @@ class FrmEasypostInit {
     private function include_shortcodes() {
 
         // Refund
-        require_once FRM_EAP_BASE_URL.'/shortcodes/payment.refund.php';
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/create-easypost-shipment.php';
 
+        // List Shipments for an entry
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/entry-shipments.php';
 
     }
 
