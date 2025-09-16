@@ -47,6 +47,9 @@ class FrmEasypostInit {
         // Address API
         require_once FRM_EAP_BASE_URL.'/classes/api/FrmEasypostAddressApi.php';
 
+        // Smarty API
+        require_once FRM_EAP_BASE_URL.'/classes/api/Smarty/FrmSmartyApi.php';
+
     }
 
     private function include_models() {
@@ -69,6 +72,9 @@ class FrmEasypostInit {
         // Shipment Rate model
         require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentRateModel.php';
 
+        // Shipment Address corporate
+        //require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentAddressCorpModel.php';
+
     }
 
     private function include_utils() {
@@ -79,6 +85,12 @@ class FrmEasypostInit {
 
         // Shipment Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostShipmentHelper.php';
+
+        // Entry Helper
+        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostEntryHelper.php';
+
+        // Carrier Helper
+        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostCarrierHelper.php';
 
     }
 
