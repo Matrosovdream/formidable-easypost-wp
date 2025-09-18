@@ -61,6 +61,7 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
 
         if ( isset( $filter['id'] ) && $filter['id'] !== '' ) { $where[] = 'id = %d'; $params[] = (int) $filter['id']; }
         if ( ! empty( $filter['easypost_id'] ) ) { $where[] = 'easypost_id = %s'; $params[] = (string) $filter['easypost_id']; }
+        if ( ! empty( $filter['easypost_shipment_id'] ) ) { $where[] = 'easypost_shipment_id = %s'; $params[] = (string) $filter['easypost_shipment_id']; }
         if ( isset( $filter['entry_id'] ) && $filter['entry_id'] !== '' ) { $where[] = 'entry_id = %d'; $params[] = (int) $filter['entry_id']; }
         if ( isset( $filter['date_advance'] ) && $filter['date_advance'] !== '' ) { $where[] = 'date_advance = %d'; $params[] = (int) $filter['date_advance']; }
         if ( ! empty( $filter['integrated_form'] ) ) { $where[] = 'integrated_form = %s'; $params[] = (string) $filter['integrated_form']; }
@@ -76,6 +77,7 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
         if ( ! empty( $filter['created_to'] ) )   { $where[] = 'created_at <= %s'; $params[] = $this->dateToMysql( $filter['created_to'] ); }
         if ( ! empty( $filter['updated_from'] ) ) { $where[] = 'updated_at >= %s'; $params[] = $this->dateToMysql( $filter['updated_from'] ); }
         if ( ! empty( $filter['updated_to'] ) )   { $where[] = 'updated_at <= %s'; $params[] = $this->dateToMysql( $filter['updated_to'] ); }
+
 
         if ( ! empty( $filter['search'] ) ) {
             $like = '%' . $this->db->esc_like( (string) $filter['search'] ) . '%';
@@ -130,6 +132,13 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
         );
     }
 
+    /** Single label by tracking_code */
+    public function getByShipmentId( string $shipmentId ) {
+        $rows = $this->getList( [ 'easypost_shipment_id' => $shipmentId ], [ 'limit' => 1 ] );
+        if ( is_wp_error( $rows ) ) { return $rows; }
+        return $rows[0] ?? null;
+    }
+
     /**
      * Bulk upsert for frm_easypost_shipment_label.
      * Unique key is 'easypost_id'.
@@ -137,6 +146,7 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
     public function multipleUpdateCreate( array $rows ) {
         $cols = [
             'easypost_id',
+            'easypost_shipment_id',
             'entry_id',
             'date_advance',
             'integrated_form',
@@ -155,6 +165,7 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
 
         $formats = [
             'easypost_id'     => '%s',
+            'easypost_shipment_id' => '%s',
             'entry_id'        => '%d',
             'date_advance'    => '%d',
             'integrated_form' => '%s',
