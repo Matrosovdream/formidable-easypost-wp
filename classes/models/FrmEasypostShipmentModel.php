@@ -17,6 +17,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         'is_return',
         'status',
         'tracking_code',
+        'tracking_url',
         'refund_status',
         'mode',
         'created_at',
@@ -126,6 +127,17 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         return $rows[0] ?? null;
     }
 
+    /** All shipments by WP entry id */
+    public function getAllByEntryId( int $entryId, array $opts = [] ) {
+        $rows = $this->getList( [ 'entry_id' => $entryId ], $opts );
+
+        foreach ( $rows as $key => $row ) {
+            $rows[$key] = $this->attachModelData( $row );
+        }
+
+        return $rows;
+    }
+
     /** Single shipment by EasyPost shipment id (e.g., shp_xxx) */
     public function getByEasypostId( string $easypostId ) {
         $rows = $this->getList( [ 'easypost_id' => $easypostId ], [ 'limit' => 1 ] );
@@ -159,10 +171,19 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         $parcel = $this->parcelModel->getByEntryId( $shipment['entry_id'] );
 
         // Labels
-        $label = $this->labelModel->getByEntryId( $shipment['entry_id'] );
+        $label = $this->labelModel->getByShipmentId( $shipment['easypost_id'] );
 
         // Rate
         $rate = $this->rateModel->getByEntryId( $shipment['entry_id'] );
+
+        // Is refundable
+        $isRefundable = true;
+        if( 
+            $shipment['status'] != 'unknown' ||
+            $shipment['refund_status'] != ''
+            ) {
+            $isRefundable = false;
+        }
 
         return array_merge( $shipment, [
             'addresses' => [
@@ -172,6 +193,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             'parcel' => $parcel,
             'label' => $label,
             'rate' => $rate,
+            'is_refundable' => $isRefundable
         ] );
 
     }
@@ -188,6 +210,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             'is_return',
             'status',
             'tracking_code',
+            'tracking_url',
             'refund_status',
             'mode',
             'created_at',
@@ -200,6 +223,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             'is_return'     => '%d',
             'status'        => '%s',
             'tracking_code' => '%s',
+            'tracking_url'  => '%s',
             'refund_status' => '%s',
             'mode'          => '%s',
             'created_at'    => '%s',
