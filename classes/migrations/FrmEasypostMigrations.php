@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class FrmEasypostMigrations {
 
-    public const DB_VERSION     = '1.0.0';
+    public const DB_VERSION     = '1.0.2';
     public const VERSION_OPTION = 'easypost_wp_db_version';
 
     /** Run on plugin activation */
@@ -54,6 +54,7 @@ class FrmEasypostMigrations {
             is_return tinyint(1) NOT NULL DEFAULT 0,
             status varchar(50) NULL,
             tracking_code varchar(100) NULL,
+            tracking_url varchar(255) NULL,
             refund_status varchar(50) NULL,
             mode varchar(20) NOT NULL DEFAULT 'test',
             created_at datetime NULL,
@@ -124,6 +125,7 @@ class FrmEasypostMigrations {
         return "CREATE TABLE {$table} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             easypost_id varchar(64) NOT NULL,
+            easypost_shipment_id varchar(64) NOT NULL,
             entry_id bigint(20) unsigned NULL,
             date_advance int NULL DEFAULT 0,
             integrated_form varchar(50) NULL,
