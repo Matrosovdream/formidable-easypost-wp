@@ -1,0 +1,145 @@
+/* Base wrapper */
+.shp-orders-wrap {
+  margin: 0 0 1rem;
+  font-size: 13px;   /* global size for shortcode */
+  color: #374151;
+}
+
+/* Card */
+.shp-order-card {
+  border: 1px solid rgba(0,0,0,0.05);   /* very light frame */
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 14px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03); /* subtle shadow */
+}
+.shp-order-header { margin-bottom: 8px; }
+.shp-order-title { font-weight: 600; font-size: 14px; }
+.shp-order-meta { color: #6b7280; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.shp-badge {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-weight: 500;
+  font-size: 11px;
+}
+.shp-dot { opacity: .5; }
+
+/* Shipments */
+.shp-shipments-title { font-weight: 600; margin: 6px 0; font-size: 13px; }
+.shp-shipments-list { list-style: none; margin: 0; padding-left: 10px; }
+.shp-shipment {
+  padding: 6px 8px;
+  border-left: 2px solid rgba(0,0,0,0.05);
+  border-radius: 6px;
+  margin: 6px 0;
+  background: rgba(0,0,0,0.015); /* faint gray background */
+}
+.shp-shipment-line { margin: 2px 0; font-size: 12px; }
+.shp-muted { color: #9ca3af; font-size: 12px; }
+.shp-voided-at { color: #9ca3af; margin-left: 5px; font-size: 12px; }
+
+/* Smaller Void button */
+.shp-void-btn {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  line-height: 1.3;
+}
+.shp-void-btn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+.shp-void-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.shp-label-form {
+  display: none; /* hidden initially */
+  margin: 10px 0 4px;
+  padding: 10px;
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.02);
+}
+.shp-label-form.is-open {
+  display: block; /* shown when toggled */
+}
+
+.shp-form-field {
+  margin-bottom: 10px;
+}
+
+/* Form fields - inherit base font size */
+.shp-form-field label {
+  font-size: inherit;
+  color: #6b7280;
+  font-weight: 500;
+}
+.shp-input,
+.shp-select {
+  font-size: inherit;          /* inherit from wrapper */
+  line-height: 1.3;
+  padding: 6px 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  outline: none;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+  height:auto;
+}
+.shp-input {
+  height: auto!important;;
+  width: auto!important;
+  padding: 5px!important;;
+  font-size: 13px!important;;
+}
+.shp-input:focus,
+.shp-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* Actions */
+.shp-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.shp-btn-primary {
+  font-size: inherit; /* same size as rest */
+  padding: 6px 10px;
+  border: 1px solid #4f46e5;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s ease-in-out, border-color .15s ease-in-out;
+}
+.shp-btn-primary:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+.shp-btn-link {
+  font-size: inherit;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.shp-btn-link:hover { color: #111827; }
