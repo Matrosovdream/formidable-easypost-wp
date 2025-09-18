@@ -110,6 +110,12 @@ class FrmEasypostInit {
         // List Shipments for an entry
         require_once FRM_EAP_BASE_URL.'/shortcodes/admin/entry-shipments.php';
 
+        // Verify Address for an entry
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/entry-verify-address.php';
+
+        // Shipment tracking info
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/shipment-tracking.php';
+
     }
 
     private function include_hooks() {
