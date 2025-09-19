@@ -833,9 +833,9 @@ function ep_ajax_easypost_get_entry_addresses() {
 
       $entryMetas  = $model->getEntryMetas($entry_id);
       $procTimeId  = isset($entryMetas[211]) ? $entryMetas[211] : '';
+      $procTimeVal = $procTimes[ $procTimeId ] ?? '';
       $entryState  = isset($entryMetas[40])  ? (string)$entryMetas[40] : '';
-      //$entryStateL = strtolower(trim($entryState));
-
+      
       $selectedAddress = null;
       $procTime        = '';
 
@@ -855,7 +855,11 @@ function ep_ajax_easypost_get_entry_addresses() {
       }
 
       // Tiebreaker only by service_states (and must match to select)
-      if (!empty($candidates) && $entryState !== '') {
+      if (
+        !empty($candidates) && 
+        count($candidates) > 1 &&
+        $entryState !== ''
+        ) {
           foreach ($candidates as $a) {
               //$svcStates = $parse_csv($a['service_states'] ?? '');
               if (in_array($entryState, $a['service_states'])) {
@@ -864,6 +868,8 @@ function ep_ajax_easypost_get_entry_addresses() {
               }
           }
           // If no match in service_states, leave $selectedAddress = null
+      } else {
+        $selectedAddress = $candidates[0];
       }
 
       // Prepare output list
