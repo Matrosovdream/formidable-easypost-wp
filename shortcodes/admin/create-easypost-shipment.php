@@ -36,6 +36,11 @@ function ep_short_easypost_label_popup($atts) {
     }
     $rendered = true;
 
+    // Prefill label message defaults from options
+    $opts   = get_option('frm_easypost', []);
+    $label1 = isset($opts['label_message1']) ? (string)$opts['label_message1'] : '';
+    $label2 = isset($opts['label_message2']) ? (string)$opts['label_message2'] : '';
+
     // ---------- CSS ----------
     wp_register_style('ep-easypost-popup', false);
     wp_enqueue_style('ep-easypost-popup');
@@ -66,7 +71,7 @@ function ep_short_easypost_label_popup($atts) {
 .ep-row-1{display:grid;grid-template-columns:1fr;gap:10px}
 .ep-field{display:flex;flex-direction:column;margin-bottom:10px}
 .ep-field label{font-size:12px;color:#555;margin-bottom:4px}
-.ep-field input, .ep-field select{width:100%;padding:8px;border:1px solid #ddd;border-radius:8px}
+.ep-field input, .ep-field select, .ep-field textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:8px}
 #ep-ep-actions{display:flex;gap:10px;align-items:center;margin-top:12px}
 .ep-btn{border:0;border-radius:8px;padding:10px 14px;cursor:pointer}
 .ep-btn-primary{background:#2563eb;color:#fff}
@@ -77,9 +82,16 @@ function ep_short_easypost_label_popup($atts) {
 #ep-ep-status.err{color:#b00020}
 #ep-ep-buy[disabled]{opacity:.6;cursor:not-allowed;background:#9ca3af!important;color:#fff!important}
 .ep-address-select { font-size: 12px; }
-.post-content {
-  margin-bottom: 300px;
+.post-content { margin-bottom: 300px; }
+/* Optional: outline-styled link button */
+.ep-btn-linklike a{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:8px;
+  border:1px solid #2563eb;
+  text-decoration:none;
 }
+.ep-btn-linklike a:hover{ text-decoration:none; }
 CSS);
 
     // ---------- JS ----------
@@ -223,16 +235,27 @@ CSS);
         phone:   $('#ep-to-phone').val()
       },
       parcel: {
-        length: parseFloat($('#ep-parcel-length').val() || '0'),
-        width:  parseFloat($('#ep-parcel-width').val()  || '0'),
-        height: parseFloat($('#ep-parcel-height').val() || '0'),
+        length: parseFloat($('#ep-parcel-length').val() || '0'), // (kept for future)
+        width:  parseFloat($('#ep-parcel-width').val()  || '0'), // (kept for future)
+        height: parseFloat($('#ep-parcel-height').val() || '0'), // (kept for future)
         weight: parseFloat($('#ep-parcel-weight').val() || '0'),
-      }
+      },
+      // NEW: label messages
+      label_message1: $('#ep-label-msg1').val(),
+      label_message2: $('#ep-label-msg2').val()
     };
   }
 
   // ---- Modal open/close ----
   $(document).on('click', '.ep-open-easypost', function(e){
+
+    $('#ep-ep-label-link').empty();
+    $('#ep-ep-tracking-link').empty();
+
+    // In Calculate click handler, before/after the request:
+    $('#ep-ep-label-link').empty();
+    $('#ep-ep-tracking-link').empty();
+
     e.preventDefault();
     const entryId = $(this).data('entryId') || '';
     $('#ep-entry-id').val(entryId);
@@ -259,6 +282,28 @@ CSS);
       const addresses = (resp && resp.success && Array.isArray(resp.data.addresses)) ? resp.data.addresses : [];
       populateAddressSelect($('#ep-from-select'), addresses);
       populateAddressSelect($('#ep-to-select'),   addresses);
+
+      // ✅ NEW: Auto-select the "Selected" address ONLY for the TO section
+      try {
+        const selectedIdx = addresses.findIndex(function(a){
+          const v = a && a.Selected;
+          return v === true || v === 'true' || v === 1 || v === '1';
+        });
+
+        if (selectedIdx >= 0) {
+          // Set the dropdown value in TO…
+          $('#ep-to-select').val(String(selectedIdx));
+
+          // …and populate TO fields directly (no .trigger('change'), so no auto-verify)
+          const $opt = $('#ep-to-select').find('option:selected');
+          const addr = $opt.data('address');
+          if (addr) {
+            applyAddressTo('to', addr); // fills only #ep-to-* fields
+          }
+        }
+      } catch(e) {
+        // optional: console.warn('Auto-select TO address failed:', e);
+      }
     })
     .fail(function(){
       populateAddressSelect($('#ep-from-select'), []);
@@ -348,17 +393,32 @@ CSS);
     setStatus('Buying label…', true);
     $('#ep-ep-buy, #ep-ep-calc').prop('disabled', true);
 
+    // Include the label messages in the buy request as well
+    const msg1 = $('#ep-label-msg1').val();
+    const msg2 = $('#ep-label-msg2').val();
+
     $.post(st.ajaxUrl, {
       action: 'easypost_create_label',
       _ajax_nonce: st.nonce,
       shipment_id: shipmentId,
-      rate_id: rateId
+      rate_id: rateId,
+      label_message1: msg1,
+      label_message2: msg2
     }).done(function(resp){
       if(resp && resp.success){
         setStatus('Label purchased. Tracking: ' + (resp.data.general.tracking_code || 'N/A'), true);
-        if(resp.data.general.postage_label && resp.data.general.postage_label.label_url){
-          $('#ep-ep-label-link').html('<a href="'+resp.data.general.postage_label.label_url+'" target="_blank" rel="noopener">Download Label</a>');
+
+        if( resp.data.label.label_url ){
+          //$('#ep-ep-tracking-link').html('<a href="'+resp.data.label.label_url+'" target="_blank" rel="noopener">Download Label</a>');
+
+          $('#ep-ep-tracking-link').html(
+            '<a href="" ' +
+            'onclick="window.open(\'' + resp.data.label.label_url.replace(/'/g, "\\'") + '\', \'Print label\', \'width=610,height=700\'); return false;">' +
+            'Print Label' +
+            '</a>'
+          );
         }
+
       } else {
         const msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Failed to buy label.';
         setStatus(msg, false);
@@ -494,6 +554,24 @@ JS);
               <div class="ep-legend-wrap"><div class="ep-legend">Parcel</div></div>
               <div class="ep-row">
                 <div class="ep-field"><label>Weight (Oz)</label><input id="ep-parcel-weight" type="number" step="0.1" value="1"></div>
+                <!-- (length/width/height kept for future; hidden inputs in case you need them) -->
+                <input id="ep-parcel-length" type="hidden" value="">
+                <input id="ep-parcel-width"  type="hidden" value="">
+                <input id="ep-parcel-height" type="hidden" value="">
+              </div>
+
+              <!-- NEW: Label message fields -->
+              <div class="ep-row-1">
+                <div class="ep-field">
+                  <label>Label message 1</label>
+                  <input id="ep-label-msg1" value="<?php echo esc_attr($label1); ?>">
+                </div>
+              </div>
+              <div class="ep-row-1">
+                <div class="ep-field">
+                  <label>Label message 2</label>
+                  <input id="ep-label-msg2" value="<?php echo esc_attr($label2); ?>">
+                </div>
               </div>
             </div>
 
@@ -511,7 +589,12 @@ JS);
                 <button id="ep-ep-buy"  class="ep-btn ep-btn-primary"  type="button" disabled>Buy label</button>
                 <div id="ep-ep-label-link" style="margin-left:auto;"></div>
               </div>
+
               <div id="ep-ep-status" aria-live="polite"></div>
+
+              <!-- NEW: tracking link row (below actions) -->
+              <div id="ep-ep-tracking-link" style="margin-top:8px;"></div>
+
             </div>
           </div>
 
@@ -539,6 +622,10 @@ function ep_ajax_easypost_calculate_rates() {
     }
     $userEmail = $user->user_email ?? '';
 
+    // NEW: pick up label messages from payload
+    $labelMsg1 = sanitize_text_field($decoded['label_message1'] ?? '');
+    $labelMsg2 = sanitize_text_field($decoded['label_message2'] ?? '');
+
     $labelData = [
         'from_address' => [
             'name'    => sanitize_text_field($decoded['from_address']['name'] ?? ''),
@@ -565,10 +652,15 @@ function ep_ajax_easypost_calculate_rates() {
             'weight' => floatval($decoded['parcel']['weight'] ?? 0),
         ],
         'reference'  => sanitize_text_field($decoded['entry_id'] ?? ''),
+        // Not all carriers honor custom print fields; include under options if supported
+        'options'    => [
+            'print_custom_1' => $labelMsg1,
+            'print_custom_2' => $labelMsg2,
+        ],
     ];
 
     try {
-      $carrierHelper = new FrmEasypostCarrierHelper();
+      $carrierHelper   = new FrmEasypostCarrierHelper();
       $carrierAccounts = $carrierHelper->getCarrierAccounts();
 
       $addresses = [
@@ -576,27 +668,37 @@ function ep_ajax_easypost_calculate_rates() {
         "to_address"   => $labelData['to_address'],
       ];
 
-      $rates = [];
+      $rates    = [];
       $shipment = null;
+
       foreach( $carrierAccounts as $account ) {
           $req = [
               "from_address" => $addresses['from_address'],
               "to_address"   => $addresses['to_address'],
-              "parcel" => [
+              "parcel"       => [
                   "weight" => floatval($decoded['parcel']['weight'] ?? 1),
                   "predefined_package" => $account['packages'][0],
               ],
               "carrier_accounts" => [$account['id']],
-              "reference"  => sanitize_text_field($decoded['entry_id'] ?? ''),
+              "reference"        => sanitize_text_field($decoded['entry_id'] ?? ''),
+              // forward the label messages as EasyPost "options" if your API layer supports this
+              "options"          => [
+                  "print_custom_1" => $labelMsg1,
+                  "print_custom_2" => $labelMsg2,
+              ],
           ];
 
+          if( strtolower( $account['code'] ) == 'fedex' ) {
+            unset( $req['options'] );
+          } 
+
           $shipmentApi = new FrmEasypostShipmentApi();
-          $shipment = $shipmentApi->createShipment($req);
+          $shipment    = $shipmentApi->createShipment($req);
 
           if( isset( $shipment['rates'] ) ) {
               foreach( $shipment['rates'] as $rate ) {
                   $rate['shipment_id'] = $shipment['general']['id'];
-                  $rate['package'] = $account['packages'][0];
+                  $rate['package']     = $account['packages'][0];
                   $rates[] = $rate;
               }
           }
@@ -625,8 +727,16 @@ function ep_ajax_easypost_create_label() {
     $rateId     = sanitize_text_field($_POST['rate_id'] ?? '');
     if (!$shipmentId || !$rateId) wp_send_json_error(['message' => 'Missing shipment or rate.']);
 
+    // NEW: accept label messages in Buy request too (use in your API layer if supported)
+    $labelMsg1 = sanitize_text_field($_POST['label_message1'] ?? '');
+    $labelMsg2 = sanitize_text_field($_POST['label_message2'] ?? '');
+
     try {
         $shipmentApi = new FrmEasypostShipmentApi();
+
+        // If your API method supports extras/options, you could pass them here, e.g.:
+        // $label = $shipmentApi->buyLabel($shipmentId, $rateId, ['print_custom_1' => $labelMsg1, 'print_custom_2' => $labelMsg2]);
+        // For now, keep the current signature:
         $label = $shipmentApi->buyLabel($shipmentId, $rateId);
 
         if (empty($label) || !is_array($label)) {
@@ -639,6 +749,7 @@ function ep_ajax_easypost_create_label() {
 
         wp_send_json_success([
             'general' => $label['general'] ?? [],
+            'label'   => $label['postage_label']   ?? [],
         ]);
     } catch (Throwable $e) {
         wp_send_json_error(['message' => 'API error: '.$e->getMessage()]);
@@ -691,39 +802,103 @@ function ep_ajax_easypost_verify_address() {
 add_action('wp_ajax_easypost_get_entry_addresses', 'ep_ajax_easypost_get_entry_addresses');
 add_action('wp_ajax_nopriv_easypost_get_entry_addresses', 'ep_ajax_easypost_get_entry_addresses');
 function ep_ajax_easypost_get_entry_addresses() {
-    check_ajax_referer('ep_easypost_nonce');
+  check_ajax_referer('ep_easypost_nonce');
 
-    $entry_id = isset($_POST['entry_id']) ? intval($_POST['entry_id']) : 0;
-    if ($entry_id <= 0) {
-        wp_send_json_error(['message' => 'Missing or invalid entry_id.']);
-    }
+  $entry_id = isset($_POST['entry_id']) ? intval($_POST['entry_id']) : 0;
+  if ($entry_id <= 0) {
+      wp_send_json_error(['message' => 'Missing or invalid entry_id.']);
+  }
 
-    if (!class_exists('FrmEasypostEntryHelper')) {
-        wp_send_json_error(['message' => 'Entry helper not found.']);
-    }
+  if (!class_exists('FrmEasypostEntryHelper')) {
+      wp_send_json_error(['message' => 'Entry helper not found.']);
+  }
 
-    try {
-        $model = new FrmEasypostEntryHelper();
-        $addresses = $model->getEntryAddresses($entry_id);
+  // helper: parse CSV to lowercased trimmed array
+  $parse_csv = static function($csv): array {
+      if (!is_string($csv)) return [];
+      $parts = array_map('trim', explode(',', $csv));
+      $parts = array_filter($parts, static fn($v) => $v !== '');
+      return array_map(static fn($v) => strtolower($v), $parts);
+  };
 
-        $out = [];
-        if (is_array($addresses)) {
-            foreach ($addresses as $a) {
-                $out[] = [
-                    'name'    => sanitize_text_field($a['name']    ?? ''),
-                    'street1' => sanitize_text_field($a['street1'] ?? ''),
-                    'street2' => sanitize_text_field($a['street2'] ?? ''),
-                    'city'    => sanitize_text_field($a['city']    ?? ''),
-                    'state'   => sanitize_text_field($a['state']   ?? ''),
-                    'zip'     => sanitize_text_field($a['zip']     ?? ''),
-                    'country' => sanitize_text_field($a['country'] ?? 'US'),
-                    'phone'   => sanitize_text_field($a['phone']   ?? ''),
-                ];
-            }
-        }
+  try {
+      $model     = new FrmEasypostEntryHelper();
+      $addresses = $model->getEntryAddresses($entry_id);
 
-        wp_send_json_success(['addresses' => $out]);
-    } catch (Throwable $e) {
-        wp_send_json_error(['message' => 'Fetch error: ' . $e->getMessage()]);
-    }
+      $procTimes = [
+          145 => 'Standard',
+          195 => 'Expedited',
+          150 => 'Rushed',
+      ];
+
+      $entryMetas  = $model->getEntryMetas($entry_id);
+      $procTimeId  = isset($entryMetas[211]) ? $entryMetas[211] : '';
+      $entryState  = isset($entryMetas[40])  ? (string)$entryMetas[40] : '';
+      //$entryStateL = strtolower(trim($entryState));
+
+      $selectedAddress = null;
+      $procTime        = '';
+
+      // Determine target proc time label (if mapped)
+      if (isset($procTimes[$procTimeId])) {
+          $procTime = $procTimes[$procTimeId];
+      }
+
+      // Build candidates by proc time (if we know the label)
+      $candidates = [];
+      if ($procTime !== '' && is_array($addresses)) {
+          foreach ($addresses as $a) {
+              if (($a['proc_time'] ?? '') === $procTime) {
+                  $candidates[] = $a;
+              }
+          }
+      }
+
+      // Tiebreaker only by service_states (and must match to select)
+      if (!empty($candidates) && $entryState !== '') {
+          foreach ($candidates as $a) {
+              //$svcStates = $parse_csv($a['service_states'] ?? '');
+              if (in_array($entryState, $a['service_states'])) {
+                  $selectedAddress = $a;
+                  break;
+              }
+          }
+          // If no match in service_states, leave $selectedAddress = null
+      }
+
+      // Prepare output list
+      $out = [];
+      if (is_array($addresses)) {
+          foreach ($addresses as $a) {
+              $out[] = [
+                  'name'       => sanitize_text_field($a['name']    ?? ''),
+                  'street1'    => sanitize_text_field($a['street1'] ?? ''),
+                  'street2'    => sanitize_text_field($a['street2'] ?? ''),
+                  'city'       => sanitize_text_field($a['city']    ?? ''),
+                  'state'      => sanitize_text_field($a['state']   ?? ''),
+                  'zip'        => sanitize_text_field($a['zip']     ?? ''),
+                  'country'    => sanitize_text_field($a['country'] ?? 'US'),
+                  'phone'      => sanitize_text_field($a['phone']   ?? ''),
+                  'proc_time'  => sanitize_text_field($a['proc_time'] ?? ''),
+                  'Selected'   => false, // default false
+              ];
+          }
+      }
+
+      // If we picked a specific address, override selection by matching ZIP
+      if ($selectedAddress && !empty($out)) {
+          foreach ($out as $k => $row) {
+              if (($row['zip'] ?? '') !== '' && ($row['zip'] === ($selectedAddress['zip'] ?? ''))) {
+                  $out[$k]['Selected'] = true;
+                  break;
+              }
+          }
+      }
+
+      wp_send_json_success(['addresses' => $out]);
+  } catch (Throwable $e) {
+      wp_send_json_error(['message' => 'Fetch error: ' . $e->getMessage()]);
+  }
 }
+
+
