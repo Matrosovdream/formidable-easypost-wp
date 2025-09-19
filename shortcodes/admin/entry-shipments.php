@@ -250,6 +250,10 @@ add_shortcode('easypost-shipments', function ($atts) {
             $refundStatus  = (string)($s['refund_status'] ?? '');
             $tracking_url  = (string)($s['tracking_url'] ?? '');
 
+            if( $refundStatus !== '' ) {
+                continue;
+            }
+
             if (!empty($s['label']) && is_array($s['label'])) {
                 $label_url = (string)($s['label']['label_url'] ?? $s['label']['url'] ?? '');
             }
