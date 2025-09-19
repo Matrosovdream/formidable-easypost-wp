@@ -58,6 +58,7 @@ class FrmEasypostShipmentAddressModel extends FrmEasypostAbstractModel {
         if ( ! empty( $filter['easypost_id'] ) ) { $where[] = 'easypost_id = %s'; $params[] = (string) $filter['easypost_id']; }
         if ( isset( $filter['entry_id'] ) && $filter['entry_id'] !== '' ) { $where[] = 'entry_id = %d'; $params[] = (int) $filter['entry_id']; }
         if ( ! empty( $filter['address_type'] ) ) { $where[] = 'address_type = %s'; $params[] = (string) $filter['address_type']; }
+        if ( ! empty( $filter['email'] ) ) { $where[] = 'email = %s'; $params[] = (string) $filter['email']; }
 
         foreach ( ['name','company','street1','street2','city','state','zip','country','phone','email'] as $col ) {
             if ( ! empty( $filter[$col] ) ) {
