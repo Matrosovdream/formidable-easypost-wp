@@ -4,10 +4,12 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     public function createShipment( array $data ): array {
 
-        $data['options'] = [
-            'print_custom_1' => 'SHIP IN 21 DAYS OR VOID',
-            'print_custom_2' => 'REF #' . ($data['reference'] ?? 'N/A'),
-        ];
+        $data['options'] = array_merge(
+            $data['options'] ?? [],
+            [
+                'print_custom_3' => 'REF # ' . ($data['reference'] ?? 'N/A'),
+            ]
+        );
 
         $res = $this->client->shipment->create($data);
 
@@ -112,10 +114,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
             foreach($shipments->shipments as $shipment) {
                 $preparedShipments[] = $this->prepareShipmentResponse( $shipment );
             }
-            echo '<pre>';
-            print_r($preparedShipments);
-            echo '</pre>';
-            
+
             return $preparedShipments;
         } else {
             return $errors;
@@ -293,6 +292,9 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
                 }
 
             }   
+
+            $rates = $this->filterRates($rates);
+
         }
 
         return [
@@ -304,6 +306,37 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
             'selected_rate' => $selectedRate ?? null,
             'rates' => $rates,
         ];
+
+    }
+
+    private function filterRates( array &$rates ) {
+
+        $opts = get_option('frm_easypost', []);
+        $carriersRaw = $opts['allowed_carriers'];
+       
+        $filter = [];
+        foreach( $carriersRaw as $carrier) {
+
+            $services = explode( ',', $carrier['services'] );
+            // Trim spaces
+            $services = array_map('trim', $services);
+
+            $filter[ $carrier['carrier'] ] = $services;
+        }
+
+        // Filter
+        $rates = array_filter($rates, function($rate) use ($filter) {
+            $carrier = $rate['carrier'] ?? '';
+            $service = $rate['service'] ?? '';
+
+            if( isset($filter[$carrier]) ) {
+                return in_array($service, $filter[$carrier]);
+            }
+
+            return false;
+        });
+
+        return $rates;
 
     }
 
