@@ -4,6 +4,11 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     public function createShipment( array $data ): array {
 
+        $data['options'] = [
+            'print_custom_1' => 'SHIP IN 21 DAYS OR VOID',
+            'print_custom_2' => 'REF #' . ($data['reference'] ?? 'N/A'),
+        ];
+
         $res = $this->client->shipment->create($data);
 
         $errors = $this->handleErrors($res);
@@ -107,6 +112,9 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
             foreach($shipments->shipments as $shipment) {
                 $preparedShipments[] = $this->prepareShipmentResponse( $shipment );
             }
+            echo '<pre>';
+            print_r($preparedShipments);
+            echo '</pre>';
             
             return $preparedShipments;
         } else {
@@ -115,7 +123,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     }
 
-    public function refundShipment(string $shipmentId): ?object
+    public function refundShipment(string $shipmentId): ?array
     {
 
         try {
@@ -123,16 +131,24 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
             // Request a refund (EasyPost API marks it as "refund_pending")
             $refunded = $this->client->shipment->refund( $shipmentId );
 
-            return $refunded;
+            $res = [
+                'ok'       => true,
+                'status'   => $refunded->status ?? null,  // e.g. "refund_pending"
+                'shipment' => $refunded,
+            ];
+
+        } catch (InvalidRequestException $e) {
+            $res = $this->formatEasyPostException($e);
         } catch (ApiException $e) {
-            \Log::error('EasyPost refund error', [
-                'status' => $e->getHttpStatus(),
-                'code'   => $e->getCode(),
-                'msg'    => $e->getMessage(),
-                'errors' => method_exists($e, 'getErrors') ? $e->getErrors() : null,
-            ]);
-            return null;
+            $res = $this->formatEasyPostException($e);
+        } catch (\Throwable $e) {
+            $res = [
+                'ok'     => false,
+                'errors' => [['message' => $e->getMessage()]],
+            ];
         }
+
+        return $res;
 
     }
 
@@ -147,6 +163,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
             'reference' => $res->reference,
             'status' => $res->status,
             'tracking_code' => $res->tracking_code,
+            'tracking_url' => $res->tracker->public_url ?? null,
             'insurance' => $res->insurance,
             'postage_label' => $res->postage_label,
             'refund_status' => $res->refund_status,
@@ -255,7 +272,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
         $rates = [];
         if( !empty($res->rates) ) {
             foreach($res->rates as $key=>$rate) {
-                $rates[$key] = [
+                $rates[] = [
                     'id' => $rate->id,
                     'carrier' => $rate->carrier,
                     'service' => $rate->service,
@@ -328,6 +345,29 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
         return $data['carriers'] ?? [];
 
+    }
+
+    public function getCarrierAccounts(): array
+    {
+        try {
+            $accounts = $this->client->carrierAccount->all();
+
+            // $accounts is an object with a "carrier_accounts" array inside
+            return [
+                'ok'       => true,
+                'accounts' => $accounts->carrier_accounts ?? [],
+            ];
+        } catch (ApiException $e) {
+            return [
+                'ok'     => false,
+                'errors' => [['message' => $e->getMessage()]],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok'     => false,
+                'errors' => [['message' => $e->getMessage()]],
+            ];
+        }
     }
 
 }
