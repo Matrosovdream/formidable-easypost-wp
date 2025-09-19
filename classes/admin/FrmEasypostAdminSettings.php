@@ -2,7 +2,9 @@
 /**
  * EasyPost Admin Settings (single-column)
  * + Smarty API Credentials block (Auth ID / Auth Token)
- * + NEW: "Service addresses" subpage with repeatable table
+ * + "Service addresses" subpage with repeatable table
+ * + "Label Messages" section with label_message1 / label_message2
+ * + "Allowed carriers" section with repeatable table (carrier + services CSV)
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -48,7 +50,7 @@ final class FrmEasypostAdminSettings {
             [ $this, 'render_settings_page' ]
         );
 
-        // NEW: Service addresses subpage
+        // Service addresses subpage
         add_submenu_page(
             'frm-easypost',
             __( 'Service addresses', 'frm-easypost' ),
@@ -73,6 +75,7 @@ final class FrmEasypostAdminSettings {
         /**
          * PAGE: Settings (page slug used for sections below is 'frm_easypost')
          */
+
         // Section: EasyPost API
         add_settings_section(
             'frm_easypost_api',
@@ -138,9 +141,54 @@ final class FrmEasypostAdminSettings {
             'frm_easypost_carriers'
         );
 
+        // NEW Section: Allowed carriers (for rate filtering)
+        add_settings_section(
+            'frm_easypost_allowed',
+            __( 'Allowed carriers', 'frm-easypost' ),
+            function () {
+                echo '<p>' . esc_html__( 'Limit which carriers (and optionally services) are allowed at checkout/label time. Leave “Services” empty to allow all services for that carrier. Use comma-separated list for services (e.g., "Express, Priority" or "Standard_overnight, Priority_overnight").', 'frm-easypost' ) . '</p>';
+            },
+            'frm_easypost'
+        );
+
+        add_settings_field(
+            'allowed_carriers',
+            __( 'Rules', 'frm-easypost' ),
+            [ $this, 'field_allowed_carriers' ],
+            'frm_easypost',
+            'frm_easypost_allowed'
+        );
+
+        // Section: Label messages
+        add_settings_section(
+            'frm_easypost_labels',
+            __( 'Label Messages', 'frm-easypost' ),
+            function () {
+                echo '<p>' . esc_html__( 'Optional messages to be printed on your shipping labels (if supported by the carrier).', 'frm-easypost' ) . '</p>';
+            },
+            'frm_easypost'
+        );
+
+        add_settings_field(
+            'label_message1',
+            __( 'Label Message 1', 'frm-easypost' ),
+            [ $this, 'field_text' ],
+            'frm_easypost',
+            'frm_easypost_labels',
+            [ 'key' => 'label_message1', 'placeholder' => 'e.g. Handle with care' ]
+        );
+
+        add_settings_field(
+            'label_message2',
+            __( 'Label Message 2', 'frm-easypost' ),
+            [ $this, 'field_text' ],
+            'frm_easypost',
+            'frm_easypost_labels',
+            [ 'key' => 'label_message2', 'placeholder' => 'e.g. Fragile' ]
+        );
+
         /**
-         * PAGE: Service addresses (note the page slug for sections below is 'frm_easypost_service')
-         * We still use the SAME registered setting group 'frm_easypost' to save the single option array.
+         * PAGE: Service addresses (page slug for sections below is 'frm_easypost_service')
          */
         add_settings_section(
             'frm_easypost_service_addresses',
@@ -165,11 +213,15 @@ final class FrmEasypostAdminSettings {
      */
     private function defaults(): array {
         return [
-            'api_key'           => '',
-            'carrier_accounts'  => [],
-            'smarty_auth_id'    => '',
-            'smarty_auth_token' => '',
-            'service_addresses' => [],
+            'api_key'            => '',
+            'carrier_accounts'   => [],
+            'smarty_auth_id'     => '',
+            'smarty_auth_token'  => '',
+            'service_addresses'  => [],
+            'label_message1'     => '',
+            'label_message2'     => '',
+            // NEW:
+            'allowed_carriers'   => [], // each row: ['carrier' => 'USPS', 'services' => 'Express, Priority']
         ];
     }
 
@@ -202,6 +254,7 @@ final class FrmEasypostAdminSettings {
                 .frm-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
                 @media (max-width:782px){ .frm-grid-2 { grid-template-columns:1fr; } }
                 .regular-text.full { width:100%; }
+                .regular-text1.full { width:100%; }
             </style>
 
             <form method="post" action="options.php">
@@ -236,22 +289,28 @@ final class FrmEasypostAdminSettings {
 
         <script>
         (function(){
-            const table = document.getElementById('frm-easypost-carriers');
-            if (!table) return;
-            const addBtn = document.getElementById('frm-easypost-add-row');
+            // ---- Carrier Accounts table ----
+            const carriersTable = document.getElementById('frm-easypost-carriers');
+            const addCarrierBtn = document.getElementById('frm-easypost-add-row');
 
-            function bindDeletes() {
-                table.querySelectorAll('.link-delete-row').forEach(btn => {
+            // ---- Allowed Carriers table ----
+            const allowedTable  = document.getElementById('frm-easypost-allowed-carriers');
+            const addAllowedBtn = document.getElementById('frm-easypost-add-allowed-row');
+
+            function bindDeletes(scope){
+                (scope || document).querySelectorAll('.link-delete-row').forEach(btn => {
                     btn.onclick = function(){
-                        const tr = this.closest('tr');
-                        if (tr && table.tBodies[0].rows.length > 1) tr.remove();
+                        const table = this.closest('table');
+                        const tbody = table ? table.tBodies[0] : null;
+                        const tr    = this.closest('tr');
+                        if (tbody && tr && tbody.rows.length > 1) tr.remove();
                     };
                 });
             }
 
-            if (addBtn) {
-                addBtn.onclick = function(){
-                    const tbody = table.tBodies[0];
+            if (addCarrierBtn && carriersTable) {
+                addCarrierBtn.onclick = function(){
+                    const tbody = carriersTable.tBodies[0];
                     const idx   = tbody.rows.length;
                     const opt   = '<?php echo esc_js( self::OPTION_NAME ); ?>';
                     const tmpl  = `
@@ -262,18 +321,34 @@ final class FrmEasypostAdminSettings {
                         <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
                     </tr>`;
                     tbody.insertAdjacentHTML('beforeend', tmpl);
-                    bindDeletes();
+                    bindDeletes(carriersTable);
                 };
             }
 
-            bindDeletes();
+            if (addAllowedBtn && allowedTable) {
+                addAllowedBtn.onclick = function(){
+                    const tbody = allowedTable.tBodies[0];
+                    const idx   = tbody.rows.length;
+                    const opt   = '<?php echo esc_js( self::OPTION_NAME ); ?>';
+                    const tmpl  = `
+                    <tr>
+                        <td><input type="text" name="${opt}[allowed_carriers][${idx}][carrier]" value="" placeholder="USPS, FedEx, FedExDefault" class="regular-text" /></td>
+                        <td><input type="text" name="${opt}[allowed_carriers][${idx}][services]" value="" placeholder="Express, Priority (leave empty for all)" class="regular-text" /></td>
+                        <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', tmpl);
+                    bindDeletes(allowedTable);
+                };
+            }
+
+            bindDeletes(document);
         })();
         </script>
         <?php
     }
 
     /**
-     * NEW: Service addresses page (separate subpage/slugs/sections)
+     * Service addresses page (separate subpage/slugs/sections)
      */
     public function render_service_addresses_page(): void {
         if ( ! current_user_can( 'manage_options' ) ) {
@@ -296,7 +371,7 @@ final class FrmEasypostAdminSettings {
                 .frm-easypost-actions {margin-top:8px}
                 .frm-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
                 @media (max-width:782px){ .frm-grid-2 { grid-template-columns:1fr; } }
-                .regular-text.full { width:100%; }
+                .regular-text1.full { width:100%; }
             </style>
 
             <form method="post" action="options.php">
@@ -335,24 +410,30 @@ final class FrmEasypostAdminSettings {
                 const tmpl = `
                 <tr>
                     <td>
-                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][name]" value="" placeholder="Name" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][name]" value="" placeholder="Name" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][company]" value="" placeholder="Company" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][company]" value="" placeholder="Company" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][phone]" value="" placeholder="Phone" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][phone]" value="" placeholder="Phone" />
+                        <br/>
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][proc_time]" value="" placeholder="Processing Time" />
                     </td>
                     <td>
-                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][street1]" value="" placeholder="Street 1" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][street1]" value="" placeholder="Street 1" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][street2]" value="" placeholder="Street 2 (optional)" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][street2]" value="" placeholder="Street 2 (optional)" />
                     </td>
                     <td>
-                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][city]" value="" placeholder="City" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][city]" value="" placeholder="City" />
                         <br/>
-                        <input class="regular-text1 1full" type="text" name="${opt}[service_addresses][${idx}][state]" value="" placeholder="State" />
+                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][state]" value="" placeholder="State" />
                     </td>
-                    <td><input class="regular-text1" type="text" name="${opt}[service_addresses][${idx}][zip]" value="" placeholder="ZIP" /></td>
-                    <td><input class="regular-text1" type="text" name="${opt}[service_addresses][${idx}][country]" value="US" placeholder="US" /></td>
+                    <td><input class="regular-text1" type="text" name="\${opt}[service_addresses][\${idx}][zip]" value="" placeholder="ZIP" /></td>
+                    <td>
+                        <input class="regular-text1" type="text" name="\${opt}[service_addresses][\${idx}][country]" value="US" placeholder="US" />
+                        <br/>
+                        <textarea class="regular-text1 full" rows="2" name="\${opt}[service_addresses][\${idx}][service_states]" placeholder=""></textarea>
+                    </td>
                     <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
                 </tr>`;
                 tbody.insertAdjacentHTML('beforeend', tmpl);
@@ -385,18 +466,17 @@ final class FrmEasypostAdminSettings {
         }
 
         // Ensure arrays exist
-        if ( ! isset( $opts['carrier_accounts'] ) || ! is_array( $opts['carrier_accounts'] ) ) {
-            $opts['carrier_accounts'] = [];
-        }
-        if ( ! isset( $opts['service_addresses'] ) || ! is_array( $opts['service_addresses'] ) ) {
-            $opts['service_addresses'] = [];
+        foreach (['carrier_accounts','service_addresses','allowed_carriers'] as $k) {
+            if ( ! isset( $opts[$k] ) || ! is_array( $opts[$k] ) ) {
+                $opts[$k] = [];
+            }
         }
 
         return $opts;
     }
 
     /**
-     * Sanitize callback (API key + carrier accounts + Smarty creds + service addresses)
+     * Sanitize callback (all fields)
      */
     public function sanitize_settings( array $input ): array {
         $output = $this->get_settings(); // start from existing + constants
@@ -408,10 +488,10 @@ final class FrmEasypostAdminSettings {
 
         // Smarty creds
         if ( isset( $input['smarty_auth_id'] ) && ! $this->is_locked( 'smarty_auth_id' ) ) {
-            $output['smarty_auth_id'] = sanitize_text_field( wp_unslash( $input['smarty_auth_id'] ) );
+            $output['smarty_auth_id'] = sanitize_text_field( $input['smarty_auth_id'] );
         }
         if ( isset( $input['smarty_auth_token'] ) && ! $this->is_locked( 'smarty_auth_token' ) ) {
-            $output['smarty_auth_token'] = sanitize_text_field( wp_unslash( $input['smarty_auth_token'] ) );
+            $output['smarty_auth_token'] = sanitize_text_field( $input['smarty_auth_token'] );
         }
 
         // carrier_accounts
@@ -441,29 +521,68 @@ final class FrmEasypostAdminSettings {
             $output['carrier_accounts'] = $clean;
         }
 
-        // service_addresses
+        // service_addresses (includes service_states CSV)
         if ( isset( $input['service_addresses'] ) && is_array( $input['service_addresses'] ) ) {
             $rows = array_values( array_filter( $input['service_addresses'], function( $row ) {
                 if ( ! is_array($row) ) return false;
-                // keep rows that have at least a name or street1
                 return ! empty( $row['name'] ) || ! empty( $row['street1'] );
             } ) );
 
             $clean = [];
             foreach ( $rows as $row ) {
+                // normalize CSV: "service_states"
+                $svcList  = array_filter( array_map( 'trim', explode( ',', (string)($row['service_states'] ?? '') ) ) );
+                $svcNorm  = implode( ', ', array_map( 'sanitize_text_field', $svcList ) );
+
                 $clean[] = [
-                    'name'    => sanitize_text_field( $row['name']    ?? '' ),
-                    'company' => sanitize_text_field( $row['company'] ?? '' ),
-                    'phone'   => sanitize_text_field( $row['phone']   ?? '' ),
-                    'street1' => sanitize_text_field( $row['street1'] ?? '' ),
-                    'street2' => sanitize_text_field( $row['street2'] ?? '' ),
-                    'city'    => sanitize_text_field( $row['city']    ?? '' ),
-                    'state'   => sanitize_text_field( $row['state']   ?? '' ),
-                    'zip'     => sanitize_text_field( $row['zip']     ?? '' ),
-                    'country' => strtoupper( sanitize_text_field( $row['country'] ?? 'US' ) ),
+                    'name'           => sanitize_text_field( $row['name']    ?? '' ),
+                    'company'        => sanitize_text_field( $row['company'] ?? '' ),
+                    'phone'          => sanitize_text_field( $row['phone']   ?? '' ),
+                    'proc_time'      => sanitize_text_field( $row['proc_time'] ?? '' ),
+                    'street1'        => sanitize_text_field( $row['street1'] ?? '' ),
+                    'street2'        => sanitize_text_field( $row['street2'] ?? '' ),
+                    'city'           => sanitize_text_field( $row['city']    ?? '' ),
+                    'state'          => sanitize_text_field( $row['state']   ?? '' ),
+                    'zip'            => sanitize_text_field( $row['zip']     ?? '' ),
+                    'country'        => strtoupper( sanitize_text_field( $row['country'] ?? 'US' ) ),
+                    'service_states' => $svcNorm, // CSV string
                 ];
             }
             $output['service_addresses'] = $clean;
+        }
+
+        // NEW: allowed_carriers
+        if ( isset( $input['allowed_carriers'] ) && is_array( $input['allowed_carriers'] ) ) {
+            $rows = array_values( array_filter( $input['allowed_carriers'], function( $row ) {
+                // Keep rows with at least a carrier
+                return is_array($row) && ! empty( $row['carrier'] );
+            } ) );
+
+            $clean = [];
+            foreach ( $rows as $row ) {
+                $carrier  = sanitize_text_field( trim( (string) ($row['carrier']  ?? '') ) );
+                $services = (string) ( $row['services'] ?? '' );
+
+                // normalize CSV services (but keep underscores/case as entered; we’ll lower at comparison time)
+                $svcList = array_filter( array_map( 'trim', explode( ',', $services ) ) );
+                $svcNorm = implode( ', ', array_map( 'sanitize_text_field', $svcList ) );
+
+                if ( $carrier !== '' ) {
+                    $clean[] = [
+                        'carrier'  => $carrier,
+                        'services' => $svcNorm, // CSV; may be empty meaning "all"
+                    ];
+                }
+            }
+            $output['allowed_carriers'] = $clean;
+        }
+
+        // label messages
+        if ( isset( $input['label_message1'] ) ) {
+            $output['label_message1'] = sanitize_text_field( $input['label_message1'] );
+        }
+        if ( isset( $input['label_message2'] ) ) {
+            $output['label_message2'] = sanitize_text_field( $input['label_message2'] );
         }
 
         return $output;
@@ -488,6 +607,23 @@ final class FrmEasypostAdminSettings {
             $locked ? 'readonly' : ''
         );
         $this->maybe_locked_note( $key );
+    }
+
+    /**
+     * Field: plain text input
+     */
+    public function field_text( array $args = [] ): void {
+        $key = $args['key'] ?? '';
+        $val = $this->get_settings()[ $key ] ?? '';
+        $ph  = $args['placeholder'] ?? '';
+
+        printf(
+            '<input type="text" name="%1$s[%2$s]" value="%3$s" class="regular-text full" placeholder="%4$s" />',
+            esc_attr( self::OPTION_NAME ),
+            esc_attr( $key ),
+            esc_attr( $val ),
+            esc_attr( $ph )
+        );
     }
 
     /**
@@ -554,7 +690,59 @@ final class FrmEasypostAdminSettings {
     }
 
     /**
-     * Field: Service addresses table
+     * NEW Field: Allowed carriers table
+     */
+    public function field_allowed_carriers(): void {
+        $opts = $this->get_settings();
+        $rows = isset( $opts['allowed_carriers'] ) && is_array( $opts['allowed_carriers'] )
+            ? $opts['allowed_carriers'] : [];
+
+        if ( empty( $rows ) ) {
+            $rows = [[ 'carrier' => '', 'services' => '' ]]; // show one blank row
+        }
+
+        $opt = esc_attr( self::OPTION_NAME );
+        ?>
+        <table class="frm-easypost-table" id="frm-easypost-allowed-carriers">
+            <thead>
+                <tr>
+                    <th style="width:35%"><?php esc_html_e('Carrier', 'frm-easypost'); ?></th>
+                    <th style="width:60%"><?php esc_html_e('Services (comma-separated; empty = all)', 'frm-easypost'); ?></th>
+                    <th style="width:5%"><?php esc_html_e('Actions', 'frm-easypost'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ( $rows as $i => $row ):
+                $carrier  = (string) ( $row['carrier']  ?? '' );
+                $services = (string) ( $row['services'] ?? '' );
+            ?>
+                <tr>
+                    <td>
+                        <input type="text" class="regular-text"
+                               name="<?php echo $opt; ?>[allowed_carriers][<?php echo (int)$i; ?>][carrier]"
+                               value="<?php echo esc_attr($carrier); ?>"
+                               placeholder="USPS, FedEx, FedExDefault" />
+                    </td>
+                    <td>
+                        <input type="text" class="regular-text"
+                               name="<?php echo $opt; ?>[allowed_carriers][<?php echo (int)$i; ?>][services]"
+                               value="<?php echo esc_attr($services); ?>"
+                               placeholder="Express, Priority or Standard_overnight, Priority_overnight" />
+                    </td>
+                    <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <div class="frm-easypost-actions">
+            <button type="button" class="button" id="frm-easypost-add-allowed-row"><?php esc_html_e('Add rule', 'frm-easypost'); ?></button>
+        </div>
+        <?php
+    }
+
+    /**
+     * Field: Service addresses table (with Country / Service States textarea)
      */
     public function field_service_addresses(): void {
         $opts = $this->get_settings();
@@ -564,7 +752,7 @@ final class FrmEasypostAdminSettings {
         if ( empty( $rows ) ) {
             $rows = [[
                 'name' => '', 'company' => '', 'street1' => '', 'street2' => '',
-                'city' => '', 'state' => '', 'zip' => '', 'country' => 'US',
+                'city' => '', 'state' => '', 'zip' => '', 'country' => 'US', 'service_states' => '',
             ]];
         }
 
@@ -573,11 +761,11 @@ final class FrmEasypostAdminSettings {
         <table class="frm-easypost-table" id="frm-easypost-service-addresses">
             <thead>
                 <tr>
-                    <th style="width:22%"><?php esc_html_e('Name / Company / Phone', 'frm-easypost'); ?></th>
+                    <th style="width:22%"><?php esc_html_e('Name / Company / Phone / Processing time', 'frm-easypost'); ?></th>
                     <th style="width:25%"><?php esc_html_e('Street', 'frm-easypost'); ?></th>
                     <th style="width:20%"><?php esc_html_e('City / State', 'frm-easypost'); ?></th>
                     <th style="width:5%"><?php esc_html_e('ZIP', 'frm-easypost'); ?></th>
-                    <th style="width:3%"><?php esc_html_e('Country', 'frm-easypost'); ?></th>
+                    <th style="width:18%"><?php esc_html_e('Country / Service States (comma-separated)', 'frm-easypost'); ?></th>
                     <th style="width:5%"><?php esc_html_e('Actions', 'frm-easypost'); ?></th>
                 </tr>
             </thead>
@@ -591,20 +779,22 @@ final class FrmEasypostAdminSettings {
                 $state   = (string) ( $row['state']   ?? '' );
                 $zip     = (string) ( $row['zip']     ?? '' );
                 $country = (string) ( $row['country'] ?? 'US' );
+                $service_states = (string) ( $row['service_states'] ?? '' );
             ?>
                 <tr>
                     <td>
-                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][name]" value="<?php echo esc_attr($name); ?>" placeholder="Phone" />
+                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][name]" value="<?php echo esc_attr($name); ?>" placeholder="Name" />
                         <br/>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][company]" value="<?php echo esc_attr($company); ?>" placeholder="Company" />
                         <br/>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][phone]" value="<?php echo esc_attr($row['phone'] ?? ''); ?>" placeholder="Phone" />
+                        <br/>
+                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][proc_time]" value="<?php echo esc_attr($row['proc_time'] ?? ''); ?>" placeholder="Processing Time" />
                     </td>
                     <td>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][street1]" value="<?php echo esc_attr($street1); ?>" placeholder="Street 1" />
                         <br/>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][street2]" value="<?php echo esc_attr($street2); ?>" placeholder="Street 2 (optional)" />
-
                     </td>
                     <td>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][city]"  value="<?php echo esc_attr($city); ?>"  placeholder="City" />
@@ -616,6 +806,10 @@ final class FrmEasypostAdminSettings {
                     </td>
                     <td>
                         <input class="regular-text1" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][country]" value="<?php echo esc_attr($country); ?>" placeholder="US" />
+                        <br/>
+                        <textarea class="regular-text1 full" rows="2"
+                            name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][service_states]"
+                            placeholder=""><?php echo esc_textarea($service_states); ?></textarea>
                     </td>
                     <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
                 </tr>
@@ -719,7 +913,45 @@ function frm_easypost_get_carrier_accounts(): array {
 }
 
 /**
- * NEW: Helpers to inject Smarty options into FrmSmartyApi
+ * NEW: Read & unpack allowed carriers into an associative array for filtering.
+ *
+ * Option structure (saved):
+ *   allowed_carriers: [
+ *     { carrier: "USPS",          services: "Express, Priority" },
+ *     { carrier: "FedExDefault",  services: "Standard_overnight, Priority_overnight" },
+ *     { carrier: "DHL",           services: "" } // empty -> allow all services for DHL
+ *   ]
+ *
+ * Returns mapping (lowercased for comparison):
+ *   [
+ *     'usps'         => ['express','priority'],
+ *     'fedexdefault' => ['standard_overnight','priority_overnight'],
+ *     'dhl'          => []  // empty array means "all services"
+ *   ]
+ */
+function frm_easypost_get_allowed_carriers(): array {
+    $opts = get_option( 'frm_easypost', [] );
+    $rows = isset( $opts['allowed_carriers'] ) && is_array( $opts['allowed_carriers'] )
+        ? $opts['allowed_carriers'] : [];
+
+    $map = [];
+    foreach ( $rows as $row ) {
+        $carrier = trim( (string) ( $row['carrier'] ?? '' ) );
+        if ( $carrier === '' ) { continue; }
+
+        $servicesCsv = (string) ( $row['services'] ?? '' );
+        $services = array_filter(array_map(function($v){
+            return strtolower(trim($v));
+        }, explode(',', $servicesCsv)));
+
+        $map[ strtolower($carrier) ] = array_values($services); // empty => allow all
+    }
+    return $map;
+}
+
+/**
+ * Returns an instance of FrmSmartyApi configured from settings/constants.
+ * Throws if credentials are missing.
  */
 function frm_smarty_get_config(): array {
     $opts = get_option( 'frm_easypost', [] );
@@ -730,16 +962,11 @@ function frm_smarty_get_config(): array {
     return [
         'auth_id'    => $authId,
         'auth_token' => $authToken,
-        // reasonable defaults for your earlier class
         'use_post'   => true,
         'logging'    => defined('WP_DEBUG') && WP_DEBUG,
     ];
 }
 
-/**
- * Returns an instance of FrmSmartyApi configured from settings/constants.
- * Throws if credentials are missing.
- */
 function frm_smarty_api(): FrmSmartyApi {
     if ( ! class_exists( 'FrmSmartyApi' ) ) {
         // require_once plugin_dir_path(__FILE__) . 'path/to/FrmSmartyApi.php';
@@ -748,3 +975,52 @@ function frm_smarty_api(): FrmSmartyApi {
     $cfg = frm_smarty_get_config();
     return new FrmSmartyApi($cfg);
 }
+
+/**
+ * NEW: Drop-in filter for EasyPost $rates using "Allowed carriers" settings.
+ *
+ * Each $rate is expected to look like:
+ * [
+ *   'carrier' => 'USPS' or 'FedExDefault' ...,
+ *   'service' => 'Express' or 'Standard_overnight' ...
+ *   ... other keys ...
+ * ]
+ *
+ * Behavior:
+ *  - If no allowed carriers are configured, returns $rates unchanged.
+ *  - If a carrier is listed with empty services, ALL services for that carrier are allowed.
+ *  - Otherwise, only listed services (case-insensitive) are allowed.
+ */
+function frm_easypost_filter_rates(array $rates): array {
+    $allowed = frm_easypost_get_allowed_carriers(); // mapping lowercased carrier => array of lowercased services (may be empty)
+    if (empty($allowed)) {
+        return $rates; // no filter configured
+    }
+
+    $out = [];
+    foreach ($rates as $rate) {
+        $carrier = strtolower( (string) ($rate['carrier'] ?? '') );
+        $service = strtolower( (string) ($rate['service'] ?? '') );
+
+        if ($carrier === '') { continue; }
+
+        // Carrier must be allowed
+        if (!array_key_exists($carrier, $allowed)) { continue; }
+
+        $svcList = $allowed[$carrier]; // [] means "all services"
+        if (empty($svcList) || in_array($service, $svcList, true)) {
+            $out[] = $rate;
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * If you already have a method like:
+ *   private function filterRates(array &$rates) { ... }
+ * you can simply replace its internals with:
+ *
+ *   $rates = frm_easypost_filter_rates($rates);
+ *   return $rates;
+ */
