@@ -388,61 +388,68 @@ final class FrmEasypostAdminSettings {
         </div>
 
         <script>
-        (function(){
-            const table = document.getElementById('frm-easypost-service-addresses');
-            const addBtn = document.getElementById('frm-easypost-add-service-address');
-            if (!table || !addBtn) return;
+(function(){
+  const table = document.getElementById('frm-easypost-service-addresses');
+  const addBtn = document.getElementById('frm-easypost-add-service-address');
+  if (!table || !addBtn) return;
 
-            function bindDeletes(){
-                table.querySelectorAll('.link-delete-row').forEach(btn => {
-                    btn.onclick = function(){
-                        const tr = this.closest('tr');
-                        if (tr && table.tBodies[0].rows.length > 1) tr.remove();
-                    };
-                });
-            }
+  const opt = '<?php echo esc_js( self::OPTION_NAME ); ?>';
 
-            addBtn.onclick = function(){
-                const tbody = table.tBodies[0];
-                const idx   = tbody.rows.length;
-                const opt   = '<?php echo esc_js( self::OPTION_NAME ); ?>';
+  function bindDeletes(){
+    table.querySelectorAll('.link-delete-row').forEach(btn => {
+      btn.onclick = function(){
+        const tr = this.closest('tr');
+        const tbody = table.tBodies[0];
+        if (tr && tbody && tbody.rows.length > 1) tr.remove();
+      };
+    });
+  }
 
-                const tmpl = `
-                <tr>
-                    <td>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][name]" value="" placeholder="Name" />
-                        <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][company]" value="" placeholder="Company" />
-                        <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][phone]" value="" placeholder="Phone" />
-                        <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][proc_time]" value="" placeholder="Processing Time" />
-                    </td>
-                    <td>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][street1]" value="" placeholder="Street 1" />
-                        <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][street2]" value="" placeholder="Street 2 (optional)" />
-                    </td>
-                    <td>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][city]" value="" placeholder="City" />
-                        <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][state]" value="" placeholder="State" />
-                    </td>
-                    <td><input class="regular-text1" type="text" name="\${opt}[service_addresses][\${idx}][zip]" value="" placeholder="ZIP" /></td>
-                    <td>
-                        <input class="regular-text1" type="text" name="\${opt}[service_addresses][\${idx}][country]" value="US" placeholder="US" />
-                        <br/>
-                        <textarea class="regular-text1 full" rows="2" name="\${opt}[service_addresses][\${idx}][service_states]" placeholder=""></textarea>
-                    </td>
-                    <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', tmpl);
-                bindDeletes();
-            };
+  addBtn.onclick = function(){
+    const tbody = table.tBodies[0];
+    const idx   = tbody.rows.length;
 
-            bindDeletes();
-        })();
-        </script>
+    // NOTE: no backslashes before ${opt} / ${idx}
+    const tmpl = `
+    <tr>
+      <td>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][name]" value="" placeholder="Name" />
+        <br/>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][company]" value="" placeholder="Company" />
+        <br/>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][phone]" value="" placeholder="Phone" />
+        <br/>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][proc_time]" value="" placeholder="Processing Time" />
+      </td>
+      <td>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][street1]" value="" placeholder="Street 1" />
+        <br/>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][street2]" value="" placeholder="Street 2 (optional)" />
+      </td>
+      <td>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][city]" value="" placeholder="City" />
+        <br/>
+        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][state]" value="" placeholder="State" />
+      </td>
+      <td>
+        <input class="regular-text1" type="text" name="${opt}[service_addresses][${idx}][zip]" value="" placeholder="ZIP" />
+      </td>
+      <td>
+        <input class="regular-text1" type="text" name="${opt}[service_addresses][${idx}][country]" value="US" placeholder="US" />
+        <br/>
+        <textarea class="regular-text1 full" rows="2" name="${opt}[service_addresses][${idx}][service_states]" placeholder=""></textarea>
+      </td>
+      <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
+    </tr>`;
+
+    tbody.insertAdjacentHTML('beforeend', tmpl);
+    bindDeletes();
+  };
+
+  bindDeletes();
+})();
+</script>
+
         <?php
     }
 
