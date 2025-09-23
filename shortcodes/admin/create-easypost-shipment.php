@@ -835,7 +835,8 @@ function ep_ajax_easypost_get_entry_addresses() {
       $procTimeId  = isset($entryMetas[211]) ? $entryMetas[211] : '';
       $procTimeVal = $procTimes[ $procTimeId ] ?? '';
       $entryState  = isset($entryMetas[40])  ? (string)$entryMetas[40] : '';
-      
+      //$entryStateL = strtolower(trim($entryState));
+
       $selectedAddress = null;
       $procTime        = '';
 

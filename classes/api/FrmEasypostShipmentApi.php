@@ -17,16 +17,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
         if( empty($errors) ) {
             $res = $this->prepareShipmentResponse( $res );
-        } else {
-            $res = ['ok' => false, 'errors' => $errors];
         }
-
-        /*
-        echo '<pre>';
-        print_r($res);
-        echo '</pre>';
-        */
-        //die();
 
         return $errors ? $errors : $res;
 
@@ -279,7 +270,6 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
         // Rates
         $rates = [];
         if( !empty($res->rates) ) {
-
             foreach($res->rates as $key=>$rate) {
                 $rates[] = [
                     'id' => $rate->id,
