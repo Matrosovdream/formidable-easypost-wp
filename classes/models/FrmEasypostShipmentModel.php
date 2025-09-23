@@ -176,15 +176,6 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         // Rate
         $rate = $this->rateModel->getByEntryId( $shipment['entry_id'] );
 
-        // Is refundable
-        $isRefundable = true;
-        if( 
-            $shipment['status'] != 'unknown' ||
-            $shipment['refund_status'] != ''
-            ) {
-            $isRefundable = false;
-        }
-
         return array_merge( $shipment, [
             'addresses' => [
                 'to' => $to,
@@ -193,9 +184,26 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             'parcel' => $parcel,
             'label' => $label,
             'rate' => $rate,
-            'is_refundable' => $isRefundable
+            'is_refundable' => $this->isRefundable( $shipment )
         ] );
 
+    }
+
+    public function isRefundable( array $shipment ): bool {
+
+        $allowedStatuses = [
+            '', // Even empty
+            'unknown',
+            'pre_transit',
+        ];
+
+        if( 
+            ! in_array( $shipment['status'], $allowedStatuses, true )
+            ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
