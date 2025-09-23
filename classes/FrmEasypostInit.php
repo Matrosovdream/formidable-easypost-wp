@@ -116,6 +116,9 @@ class FrmEasypostInit {
         // Shipment tracking info
         require_once FRM_EAP_BASE_URL.'/shortcodes/admin/shipment-tracking.php';
 
+        // Shipments all
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/frm-shipments-all.php';
+
     }
 
     private function include_hooks() {
