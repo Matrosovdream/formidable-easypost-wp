@@ -79,7 +79,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
         }
     }
 
-    public function getShipmentById(string $shipmentId, array $attachObjects): array
+    public function getShipmentById(string $shipmentId, array $attachObjects=[]): array
     {
 
         $res = $this->client->shipment->retrieve($shipmentId);
