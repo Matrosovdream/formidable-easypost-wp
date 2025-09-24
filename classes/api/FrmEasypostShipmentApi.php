@@ -4,15 +4,15 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     public function createShipment( array $data ): array {
 
-        $data['options'] = array_merge(
-            $data['options'] ?? [],
-            [
-                'print_custom_3' => 'REF # ' . ($data['reference'] ?? 'N/A'),
-            ]
-        );
+        // 🔌 Allow plugins/themes to modify the payload BEFORE creating the shipment
+        // Filter name: frm_easypost_shipment_pre_create_data
+        // Params: (array $data, object $instance)
+        $data = apply_filters('frm_easypost_shipment_pre_create_data', $data);
 
+        // Api call
         $res = $this->client->shipment->create($data);
 
+        // Handle errors
         $errors = $this->handleErrors($res);
 
         if( empty($errors) ) {
