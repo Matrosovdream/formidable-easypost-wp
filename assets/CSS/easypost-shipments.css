@@ -1,0 +1,22 @@
+.easyspot-shipments { margin: 10px 0; }
+.easyspot-shipment {
+  border: 1px solid #ddd; padding: 12px; margin-bottom: 12px;
+  display: flex; justify-content: space-between; gap: 12px;
+  align-items: center; font-size: 14px; border-radius: 6px; background: #fff;
+}
+.easyspot-info { flex: 1; min-width: 0; }
+.easyspot-info div { margin-bottom: 4px; }
+.easyspot-actions { display: flex; gap: 8px; }
+.easyspot-btn {
+  padding: 6px 12px; border: 1px solid #ccc; background: #f8f8f8;
+  cursor: pointer; border-radius: 4px; font-size: 13px; line-height: 1.2;
+}
+.easyspot-btn:hover { background: #f1f1f1; }
+.easyspot-btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+.easyspot-badge {
+  display: inline-block; padding: 2px 6px; border-radius: 3px;
+  font-size: 12px; line-height: 1.3; background: #eef2ff; color: #1e3a8a; border: 1px solid #c7d2fe;
+}
+.easyspot-muted { color: #666; }
+.easyspot-btn-primary{ background:#2563eb; color:#fff; border-color:#1d4ed8; }
+.easyspot-btn-primary:hover{ background:#1d4ed8; }

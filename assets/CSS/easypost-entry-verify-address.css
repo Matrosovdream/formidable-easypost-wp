@@ -1,0 +1,16 @@
+.epv-group{border:1px solid #eee;border-radius:10px;padding:14px;margin:10px 0}
+.epv-legend-wrap{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px}
+.epv-legend{font-weight:700;margin:0}
+.epv-verify-bar{display:flex;align-items:center;gap:8px}
+.epv-verify-btn{border:0;border-radius:8px;padding:6px 10px;background:#f3f4f6;cursor:pointer}
+.epv-toggle-btn{border:0;border-radius:8px;padding:6px 10px;background:#e5e7eb;cursor:pointer}
+.epv-verify-status{font-size:12px}
+.epv-verify-status.ok{color:#0a7a2b}
+.epv-verify-status.err{color:#b00020}
+.epv-normalized{display:none;margin-top:8px;font-size:12px;color:#374151;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px}
+.epv-form{display:none;margin-top:10px}
+.epv-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.epv-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.epv-field{display:flex;flex-direction:column;margin-bottom:10px}
+.epv-field label{font-size:12px;color:#555;margin-bottom:4px}
+.epv-field input{width:100%;padding:8px;border:1px solid #ddd;border-radius:8px}

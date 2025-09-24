@@ -14,6 +14,14 @@ function frm_shipments_list_shortcode($atts = []) {
         return '<div style="color:#b00">FrmEasypostShipmentModel not found.</div>';
     }
 
+    // Enqueue external CSS (resource connection style)
+    wp_enqueue_style(
+        'frm-shipments-list',
+        esc_url(FRM_EAP_BASE_PATH . 'assets/css/easypost-shipments-list.css?time=' . time()),
+        [],
+        null
+    );
+
     global $wpdb;
     $table = $wpdb->prefix . 'frm_easypost_shipments';
 
@@ -120,29 +128,6 @@ function frm_shipments_list_shortcode($atts = []) {
 
     ob_start();
     ?>
-    <style>
-        /* Reuse the exact same styling block from frm-emails-list */
-        .frm-emails-wrap { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-        .frm-emails-filters { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:12px; }
-        .frm-emails-filters .field { display:flex; flex-direction:column; }
-        .frm-emails-filters input[type="text"], .frm-emails-filters input[type="number"], .frm-emails-filters input[type="date"], .frm-emails-filters select {
-            padding:6px 8px; border:1px solid #d0d7de; border-radius:6px; min-width:160px;
-        }
-        .frm-emails-filters .submit-btn { padding:8px 12px; border:1px solid #1f6feb; background:#1f6feb; color:#fff; border-radius:6px; cursor:pointer; }
-        .frm-emails-filters .reset-btn { padding:8px 12px; border:1px solid #d0d7de; background:#fff; color:#24292f; border-radius:6px; cursor:pointer; }
-        .frm-emails-table { width:100%; border-collapse: collapse; }
-        .frm-emails-table th, .frm-emails-table td { border-bottom:1px solid #eaeef2; padding:8px 10px; vertical-align: top; }
-        .frm-emails-table th { text-align:left; background:#f6f8fa; }
-        .frm-emails-table .view-btn, .frm-emails-table .open-link-btn {
-            padding:6px 10px; border:1px solid #1f6feb; background:#1f6feb; color:#fff; border-radius:6px;
-            cursor:pointer; text-decoration:none; display:inline-block;
-        }
-        .frm-emails-pager { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:12px; }
-        .frm-emails-pager a, .frm-emails-pager span { padding:6px 10px; border:1px solid #d0d7de; border-radius:6px; text-decoration:none; color:#24292f; }
-        .frm-emails-pager .active { background:#1f6feb; color:#fff; border-color:#1f6feb; }
-        .frm-emails-pager .disabled { opacity:.45; pointer-events:none; }
-    </style>
-
     <div class="frm-emails-wrap">
         <?php $reset_url = esc_url( get_permalink() ); ?>
         <form method="get" class="frm-emails-filters" action="<?php echo esc_url( get_permalink() ); ?>">
@@ -210,7 +195,7 @@ function frm_shipments_list_shortcode($atts = []) {
             </thead>
             <tbody>
             <?php if (empty($rows)): ?>
-                <tr><td colspan="6" style="color:#57606a;">No results.</td></tr>
+                <tr><td colspan="6" class="frm-empty">No results.</td></tr>
             <?php else: foreach ($rows as $r):
                 $entryVal     = isset($r['entry_id']) ? (int)$r['entry_id'] : 0;
                 $trackingCode = (string)($r['tracking_code'] ?? '');
@@ -223,7 +208,7 @@ function frm_shipments_list_shortcode($atts = []) {
             ?>
                 <tr>
                     <td><?php echo $entryVal ? (int)$entryVal : ''; ?></td>
-                    <td style="max-width:280px; word-break:break-word;"><?php echo esc_html($trackingCode); ?></td>
+                    <td class="frm-td-break"><?php echo esc_html($trackingCode); ?></td>
                     <td><?php echo esc_html($statusText); ?></td>
                     <td><?php echo esc_html($refund); ?></td>
                     <td><?php echo esc_html($createdFmt); ?></td>
@@ -231,7 +216,7 @@ function frm_shipments_list_shortcode($atts = []) {
                         <?php if ($url !== ''): ?>
                             <a class="open-link-btn" href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener">Open</a>
                         <?php else: ?>
-                            <span style="color:#57606a;">—</span>
+                            <span class="frm-dash">—</span>
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -268,7 +253,7 @@ function frm_shipments_list_shortcode($atts = []) {
                 <a class="<?php echo $page >= $total_pages ? 'disabled' : ''; ?>" href="<?php echo $page_url($next_page); ?>">Next</a>
             </div>
             <div>
-                <span style="color:#57606a;">Showing page <?php echo (int)$page; ?> of <?php echo (int)$total_pages; ?> (<?php echo (int)$total; ?> total)</span>
+                <span class="frm-muted">Showing page <?php echo (int)$page; ?> of <?php echo (int)$total_pages; ?> (<?php echo (int)$total; ?> total)</span>
             </div>
         </div>
     </div>

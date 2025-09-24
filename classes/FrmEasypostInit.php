@@ -27,6 +27,9 @@ class FrmEasypostInit {
         // Hooks
         $this->include_hooks();
 
+        // Ajax actions
+        $this->include_ajax();
+
     }
 
     private function include_migrations() {
@@ -131,6 +134,28 @@ class FrmEasypostInit {
 
         // Label bought action
         require_once FRM_EAP_BASE_URL.'/actions//admin/frm_easypost_label_bought.php';
+
+    }
+
+    private function include_ajax() {
+
+        // Get entry addresses ajax
+        require_once FRM_EAP_BASE_URL.'/actions/ajax/easypost_get_entry_addresses.php';
+
+        // Verify address ajax
+        require_once FRM_EAP_BASE_URL.'/actions/ajax/easypost_verify_address.php';
+
+        // Entry verify address ajax (Smarty)
+        require_once FRM_EAP_BASE_URL.'/actions/ajax/entry_verify_address.php';
+
+        // Calculate rates ajax
+        require_once FRM_EAP_BASE_URL.'/actions/ajax/easypost_calculate_rates.php';
+
+        // Create label ajax
+        require_once FRM_EAP_BASE_URL.'/actions/ajax/easypost_create_label.php';
+
+        // Void shipment ajax
+        require_once FRM_EAP_BASE_URL.'/actions/ajax/easypost_void_shipment.php';
 
     }
 

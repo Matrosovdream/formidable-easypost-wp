@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Variables
 define('FRM_EAP_BASE_URL', __DIR__);
+define('FRM_EAP_BASE_PATH', plugin_dir_url(__FILE__));
 
 // Initialize core
 require_once 'classes/FrmEasypostInit.php';
@@ -271,11 +272,6 @@ function getShipments() {
     die();
 
 }
-
-
-
-
-
 
 
 

@@ -1,0 +1,47 @@
+#ep-ep-modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.5);z-index:9999}
+#ep-ep-modal.show{display:block}
+#ep-ep-dialog{max-width:1250px;margin:6vh auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+#ep-ep-header{padding:14px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+#ep-ep-title{font-weight:700;margin:0}
+#ep-ep-close{cursor:pointer;border:none;background:transparent;font-size:22px;line-height:1}
+#ep-ep-body{padding:18px}
+#ep-ep-groups{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:900px){#ep-ep-groups{grid-template-columns:1fr}}
+.ep-group{border:1px solid #eee;border-radius:10px;padding:14px}
+.ep-legend-wrap{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px}
+.ep-legend{font-weight:700;margin:0}
+.ep-verify-bar{display:flex;align-items:center;gap:8px}
+.ep-verify-btn{border:0;border-radius:8px;padding:6px 10px;background:#f3f4f6;cursor:pointer}
+.ep-verify-status{font-size:12px}
+.ep-verify-status.ok{color:#0a7a2b}
+.ep-verify-status.err{color:#b00020}
+.ep-normalized{
+  display:none;
+  margin-top:8px;font-size:12px;color:#374151;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px
+}
+.ep-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ep-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.ep-row-1{display:grid;grid-template-columns:1fr;gap:10px}
+.ep-field{display:flex;flex-direction:column;margin-bottom:10px}
+.ep-field label{font-size:12px;color:#555;margin-bottom:4px}
+.ep-field input, .ep-field select, .ep-field textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:8px}
+#ep-ep-actions{display:flex;gap:10px;align-items:center;margin-top:12px}
+.ep-btn{border:0;border-radius:8px;padding:10px 14px;cursor:pointer}
+.ep-btn-primary{background:#2563eb;color:#fff}
+.ep-btn-secondary{background:#f3f4f6}
+#ep-ep-rates-wrap{margin-top:10px}
+#ep-ep-status{margin-top:10px;font-size:13px}
+#ep-ep-status.ok{color:#0a7a2b}
+#ep-ep-status.err{color:#b00020}
+#ep-ep-buy[disabled]{opacity:.6;cursor:not-allowed;background:#9ca3af!important;color:#fff!important}
+.ep-address-select { font-size: 12px; }
+.post-content { margin-bottom: 300px; }
+/* Optional: outline-styled link button */
+.ep-btn-linklike a{
+  display:inline-block;
+  padding:10px 14px;
+  border-radius:8px;
+  border:1px solid #2563eb;
+  text-decoration:none;
+}
+.ep-btn-linklike a:hover{ text-decoration:none; }
