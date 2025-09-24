@@ -734,9 +734,7 @@ function ep_ajax_easypost_create_label() {
     try {
         $shipmentApi = new FrmEasypostShipmentApi();
 
-        // If your API method supports extras/options, you could pass them here, e.g.:
-        // $label = $shipmentApi->buyLabel($shipmentId, $rateId, ['print_custom_1' => $labelMsg1, 'print_custom_2' => $labelMsg2]);
-        // For now, keep the current signature:
+        // Buy label by API
         $label = $shipmentApi->buyLabel($shipmentId, $rateId);
 
         if (empty($label) || !is_array($label)) {
@@ -745,7 +743,14 @@ function ep_ajax_easypost_create_label() {
 
         // Update Shipment by API
         $shipmentHelper = new FrmEasypostShipmentHelper();
-        $shipmentHelper->updateShipmentsApi();
+        $shipmentHelper->updateShipmentApi($shipmentId );
+
+        /**
+         * Fires right after a label is successfully bought.
+         *
+         * @param array $shipment Normalized shipment data (see fields above).
+         */
+        do_action('frm_easypost_label_bought', $label);
 
         wp_send_json_success([
             'general' => $label['general'] ?? [],
