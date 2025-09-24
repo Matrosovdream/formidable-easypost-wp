@@ -5,6 +5,7 @@
  * + "Service addresses" subpage with repeatable table
  * + "Label Messages" section with label_message1 / label_message2
  * + "Allowed carriers" section with repeatable table (carrier + services CSV)
+ * + "USPS settings" section with integer timezone
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -141,7 +142,7 @@ final class FrmEasypostAdminSettings {
             'frm_easypost_carriers'
         );
 
-        // NEW Section: Allowed carriers (for rate filtering)
+        // Section: Allowed carriers (for rate filtering)
         add_settings_section(
             'frm_easypost_allowed',
             __( 'Allowed carriers', 'frm-easypost' ),
@@ -187,6 +188,32 @@ final class FrmEasypostAdminSettings {
             [ 'key' => 'label_message2', 'placeholder' => 'e.g. Fragile' ]
         );
 
+        // NEW: Section: USPS settings
+        add_settings_section(
+            'frm_easypost_usps',
+            __( 'USPS settings', 'frm-easypost' ),
+            function () {
+                echo '<p>' . esc_html__( 'Configure USPS-specific options.', 'frm-easypost' ) . '</p>';
+            },
+            'frm_easypost'
+        );
+
+        add_settings_field(
+            'usps_timezone',
+            __( 'Timezone (UTC offset, integer)', 'frm-easypost' ),
+            [ $this, 'field_number' ],
+            'frm_easypost',
+            'frm_easypost_usps',
+            [
+                'key'         => 'usps_timezone',
+                'placeholder' => 'e.g. -8 for America/Los_Angeles',
+                'min'         => -12,
+                'max'         => 14,
+                'step'        => 1,
+                'help'        => __( 'Integer hours offset from UTC. Example: Pacific (Los Angeles) is -8 (standard time).', 'frm-easypost' ),
+            ]
+        );
+
         /**
          * PAGE: Service addresses (page slug for sections below is 'frm_easypost_service')
          */
@@ -220,8 +247,9 @@ final class FrmEasypostAdminSettings {
             'service_addresses'  => [],
             'label_message1'     => '',
             'label_message2'     => '',
-            // NEW:
             'allowed_carriers'   => [], // each row: ['carrier' => 'USPS', 'services' => 'Express, Priority']
+            // NEW:
+            'usps_timezone'      => 0,  // integer UTC offset (e.g., -8 for America/Los_Angeles)
         ];
     }
 
@@ -551,7 +579,7 @@ final class FrmEasypostAdminSettings {
             $output['service_addresses'] = $clean;
         }
 
-        // NEW: allowed_carriers
+        // allowed_carriers
         if ( isset( $input['allowed_carriers'] ) && is_array( $input['allowed_carriers'] ) ) {
             $rows = array_values( array_filter( $input['allowed_carriers'], function( $row ) {
                 // Keep rows with at least a carrier
@@ -583,6 +611,14 @@ final class FrmEasypostAdminSettings {
         }
         if ( isset( $input['label_message2'] ) ) {
             $output['label_message2'] = sanitize_text_field( $input['label_message2'] );
+        }
+
+        // NEW: usps_timezone (integer UTC offset)
+        if ( isset( $input['usps_timezone'] ) ) {
+            $tz = (int) $input['usps_timezone'];
+            if ( $tz < -12 ) $tz = -12;
+            if ( $tz > 14 )  $tz = 14;
+            $output['usps_timezone'] = $tz;
         }
 
         return $output;
@@ -624,6 +660,36 @@ final class FrmEasypostAdminSettings {
             esc_attr( $val ),
             esc_attr( $ph )
         );
+    }
+
+    /**
+     * Field: number input (with optional min/max/step)
+     */
+    public function field_number( array $args = [] ): void {
+        $key   = $args['key'] ?? '';
+        $ph    = $args['placeholder'] ?? '';
+        $min   = array_key_exists('min', $args) ? (string)$args['min'] : '';
+        $max   = array_key_exists('max', $args) ? (string)$args['max'] : '';
+        $step  = array_key_exists('step', $args) ? (string)$args['step'] : '1';
+        $help  = $args['help'] ?? '';
+
+        $val = $this->get_settings()[ $key ] ?? '';
+        $val = is_numeric($val) ? (string)(int)$val : '';
+
+        printf(
+            '<input type="number" name="%1$s[%2$s]" value="%3$s" class="regular-text" placeholder="%4$s" %5$s %6$s %7$s />',
+            esc_attr( self::OPTION_NAME ),
+            esc_attr( $key ),
+            esc_attr( $val ),
+            esc_attr( $ph ),
+            $min !== '' ? 'min="'.esc_attr($min).'"' : '',
+            $max !== '' ? 'max="'.esc_attr($max).'"' : '',
+            $step !== '' ? 'step="'.esc_attr($step).'"' : ''
+        );
+
+        if ( $help ) {
+            echo '<p class="description" style="margin:4px 0 0;">' . esc_html( $help ) . '</p>';
+        }
     }
 
     /**
@@ -690,7 +756,7 @@ final class FrmEasypostAdminSettings {
     }
 
     /**
-     * NEW Field: Allowed carriers table
+     * Field: Allowed carriers table
      */
     public function field_allowed_carriers(): void {
         $opts = $this->get_settings();
@@ -913,7 +979,7 @@ function frm_easypost_get_carrier_accounts(): array {
 }
 
 /**
- * NEW: Read & unpack allowed carriers into an associative array for filtering.
+ * Read & unpack allowed carriers into an associative array for filtering.
  *
  * Option structure (saved):
  *   allowed_carriers: [
@@ -977,7 +1043,7 @@ function frm_smarty_api(): FrmSmartyApi {
 }
 
 /**
- * NEW: Drop-in filter for EasyPost $rates using "Allowed carriers" settings.
+ * Drop-in filter for EasyPost $rates using "Allowed carriers" settings.
  *
  * Each $rate is expected to look like:
  * [

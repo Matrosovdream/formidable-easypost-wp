@@ -27,6 +27,9 @@ class FrmEasypostInit {
         // Hooks
         $this->include_hooks();
 
+        // Filters
+        $this->include_filters();
+
         // Ajax actions
         $this->include_ajax();
 
@@ -98,6 +101,9 @@ class FrmEasypostInit {
         // Carrier Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostCarrierHelper.php';
 
+        // Settings Helper
+        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostSettingsHelper.php';
+
     }
 
     private function include_cron() {
@@ -134,6 +140,13 @@ class FrmEasypostInit {
 
         // Label bought action
         require_once FRM_EAP_BASE_URL.'/actions//admin/frm_easypost_label_bought.php';
+
+    }
+
+    private function include_filters() {
+
+        // Pre-create shipment data filter
+        require_once FRM_EAP_BASE_URL.'/actions/filters/frm_easypost_shipment_pre_create_data.php';
 
     }
 
