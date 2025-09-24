@@ -18,10 +18,41 @@ class FrmEasypostShipmentHelper {
         $this->rateModel = new FrmEasypostShipmentRateModel();
     }
 
+    public function updateShipmentApi( string $shipmentId ) {
+
+        $shipment = $this->shipmentApi->getShipmentById( $shipmentId );
+
+        // Update shipment in DB
+        $this->updateShipmentsDB( [$shipment] );
+
+    }
+
     public function updateShipmentsApi( array $filter = [] ) {
 
+        if( isset( $filter['beforeId'] ) ) {
+            $beforeId = $filter['beforeId'];
+        }
+
+        if( isset( $filter['afterId'] ) ) {
+            $afterId = $filter['afterId'];
+        }
+
         // Get orders from ShipStation API
-        $shipments = $this->shipmentApi->getAllShipments(100);
+        $shipments = $this->shipmentApi->getAllShipments(
+            1000, 
+            isset($beforeId) ? $beforeId : null, 
+            isset($afterId) ? $afterId : null
+        );
+
+        return $this->updateShipmentsDB( $shipments );
+
+    }
+
+    private function updateShipmentsDB( array $shipments ) {
+
+        if ( empty($shipments) ) {
+            return 0;
+        }
 
         // Prepare orders for update/create
         $shipmentsProcessed = [];
