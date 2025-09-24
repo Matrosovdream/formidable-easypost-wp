@@ -24,6 +24,9 @@ class FrmEasypostInit {
         // CRON
         $this->include_cron();
 
+        // Hooks
+        $this->include_hooks();
+
     }
 
     private function include_migrations() {
@@ -124,7 +127,10 @@ class FrmEasypostInit {
     private function include_hooks() {
         
         // Void shipment ajax
-        require_once FRM_EAP_BASE_URL.'/actions//user/void-shipment.php';
+        //require_once FRM_EAP_BASE_URL.'/actions//user/void-shipment.php';
+
+        // Label bought action
+        require_once FRM_EAP_BASE_URL.'/actions//admin/frm_easypost_label_bought.php';
 
     }
 
