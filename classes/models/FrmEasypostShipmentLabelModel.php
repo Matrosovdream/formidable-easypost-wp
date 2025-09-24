@@ -13,6 +13,7 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
     private const SORTABLE = [
         'id',
         'easypost_id',
+        'easypost_shipment_id',
         'entry_id',
         'date_advance',
         'integrated_form',
@@ -132,7 +133,7 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
         );
     }
 
-    /** Single label by tracking_code */
+    /** Single label by shipment_id */
     public function getByShipmentId( string $shipmentId ) {
         $rows = $this->getList( [ 'easypost_shipment_id' => $shipmentId ], [ 'limit' => 1 ] );
         if ( is_wp_error( $rows ) ) { return $rows; }

@@ -104,6 +104,7 @@ class FrmEasypostShipmentHelper {
             $data = $item['selected_rate'];
             $itemsProcessed[] = [
                 'easypost_id' => $data['id'],
+                'easypost_shipment_id' => $item['general']['id'],
                 'entry_id' => (int) $data['reference'],
                 'mode' => !empty($data['mode']) ? $data['mode'] : 'test',
                 'service' => !empty($data['service']) ? $data['service'] : null,
@@ -174,6 +175,7 @@ class FrmEasypostShipmentHelper {
             $data = $item['parcel'];
             $itemsProcessed[] = [
                 'easypost_id' => $data['id'],
+                'easypost_shipment_id' => $item['general']['id'],
                 'entry_id' => (int) $data['reference'],
                 'length' => !empty($data['length']) ? $data['length'] : null,
                 'width' => !empty($data['width']) ? $data['width'] : null,
@@ -206,6 +208,7 @@ class FrmEasypostShipmentHelper {
                 $data = $item[$tab];
                 $itemsProcessed[] = [
                     'easypost_id' => $data['id'],
+                    'easypost_shipment_id' => $item['general']['id'],
                     'entry_id' => (int) $item['general']['reference'],
                     'address_type' => $type,
                     'name' => !empty($data['name']) ? $data['name'] : null,

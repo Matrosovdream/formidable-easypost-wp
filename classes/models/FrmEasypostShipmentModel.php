@@ -115,6 +115,18 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         return $rows;
     }
 
+    /** Get by id */
+    public function getById( int $id ) {
+        $rows = $this->getList( [ 'id' => $id ], [ 'limit' => 1 ] );
+
+        foreach ( $rows as $key => $row ) {
+            $rows[$key] = $this->attachModelData( $row );
+        }
+
+        if ( is_wp_error( $rows ) ) { return $rows; }
+        return $rows[0] ?? null;
+    }
+
     /** Get by entry_id */
     public function getByEntryId( int $entryId ) {
         $rows = $this->getList( [ 'entry_id' => $entryId ], [ 'limit' => 1 ] );
@@ -155,7 +167,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
     private function attachModelData( array $shipment ) {
         
         // Addresses 
-        $addresses = $this->addressModel->getAllByEntryId( $shipment['entry_id'] );
+        $addresses = $this->addressModel->getAllByShipmentId( $shipment['easypost_id'] );
         // Split into to/from
         $to = [];
         $from = [];
@@ -168,13 +180,13 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         }
 
         // Parcel
-        $parcel = $this->parcelModel->getByEntryId( $shipment['entry_id'] );
+        $parcel = $this->parcelModel->getByShipmentId( $shipment['easypost_id'] );
 
         // Labels
         $label = $this->labelModel->getByShipmentId( $shipment['easypost_id'] );
 
         // Rate
-        $rate = $this->rateModel->getByEntryId( $shipment['entry_id'] );
+        $rate = $this->rateModel->getByShipmentId( $shipment['easypost_id'] );
 
         return array_merge( $shipment, [
             'addresses' => [

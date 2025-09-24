@@ -13,6 +13,7 @@ class FrmEasypostShipmentAddressModel extends FrmEasypostAbstractModel {
     private const SORTABLE = [
         'id',
         'easypost_id',
+        'easypost_shipment_id',
         'entry_id',
         'address_type',
         'name',
@@ -56,6 +57,7 @@ class FrmEasypostShipmentAddressModel extends FrmEasypostAbstractModel {
 
         if ( isset( $filter['id'] ) && $filter['id'] !== '' ) { $where[] = 'id = %d'; $params[] = (int) $filter['id']; }
         if ( ! empty( $filter['easypost_id'] ) ) { $where[] = 'easypost_id = %s'; $params[] = (string) $filter['easypost_id']; }
+        if ( ! empty( $filter['easypost_shipment_id'] ) ) { $where[] = 'easypost_shipment_id = %s'; $params[] = (string) $filter['easypost_shipment_id']; }
         if ( isset( $filter['entry_id'] ) && $filter['entry_id'] !== '' ) { $where[] = 'entry_id = %d'; $params[] = (int) $filter['entry_id']; }
         if ( ! empty( $filter['address_type'] ) ) { $where[] = 'address_type = %s'; $params[] = (string) $filter['address_type']; }
         if ( ! empty( $filter['email'] ) ) { $where[] = 'email = %s'; $params[] = (string) $filter['email']; }
@@ -128,6 +130,13 @@ class FrmEasypostShipmentAddressModel extends FrmEasypostAbstractModel {
         return $rows[0] ?? null;
     }
 
+    /** Single label by shipment_id */
+    public function getAllByShipmentId( string $shipmentId ) {
+        $rows = $this->getList( [ 'easypost_shipment_id' => $shipmentId ], [ 'limit' => 1000 ] );
+        if ( is_wp_error( $rows ) ) { return $rows; }
+        return $rows ?? null;
+    }
+
     /**
      * Bulk upsert for frm_easypost_shipment_addresses.
      * Unique key is 'easypost_id'.
@@ -135,6 +144,7 @@ class FrmEasypostShipmentAddressModel extends FrmEasypostAbstractModel {
     public function multipleUpdateCreate( array $rows ) {
         $cols = [
             'easypost_id',
+            'easypost_shipment_id',
             'entry_id',
             'address_type',
             'name',
@@ -151,6 +161,7 @@ class FrmEasypostShipmentAddressModel extends FrmEasypostAbstractModel {
 
         $formats = [
             'easypost_id'  => '%s',
+            'easypost_shipment_id' => '%s',
             'entry_id'     => '%d',
             'address_type' => '%s',
             'name'         => '%s',

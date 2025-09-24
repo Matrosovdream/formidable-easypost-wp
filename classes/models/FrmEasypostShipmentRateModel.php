@@ -13,6 +13,7 @@ class FrmEasypostShipmentRateModel extends FrmEasypostAbstractModel {
     private const SORTABLE = [
         'id',
         'easypost_id',
+        'easypost_shipment_id',
         'entry_id',
         'mode',
         'service',
@@ -70,6 +71,7 @@ class FrmEasypostShipmentRateModel extends FrmEasypostAbstractModel {
 
         if ( isset( $filter['id'] ) && $filter['id'] !== '' ) { $where[] = 'id = %d'; $params[] = (int) $filter['id']; }
         if ( ! empty( $filter['easypost_id'] ) ) { $where[] = 'easypost_id = %s'; $params[] = (string) $filter['easypost_id']; }
+        if ( ! empty( $filter['easypost_shipment_id'] ) ) { $where[] = 'easypost_shipment_id = %s'; $params[] = (string) $filter['easypost_shipment_id']; }
         if ( isset( $filter['entry_id'] ) && $filter['entry_id'] !== '' ) { $where[] = 'entry_id = %d'; $params[] = (int) $filter['entry_id']; }
         if ( ! empty( $filter['mode'] ) ) { $where[] = 'mode = %s'; $params[] = (string) $filter['mode']; }
         if ( ! empty( $filter['service'] ) ) { $where[] = 'service = %s'; $params[] = (string) $filter['service']; }
@@ -135,6 +137,13 @@ class FrmEasypostShipmentRateModel extends FrmEasypostAbstractModel {
         return $rows[0] ?? null;
     }
 
+    /** Single label by shipment_id */
+    public function getByShipmentId( string $shipmentId ) {
+        $rows = $this->getList( [ 'easypost_shipment_id' => $shipmentId ], [ 'limit' => 1 ] );
+        if ( is_wp_error( $rows ) ) { return $rows; }
+        return $rows[0] ?? null;
+    }
+
     /** Optional: narrow by carrier+service */
     public function getByCarrierService( string $carrier, string $service, array $opts = [] ) {
         $filter = [ 'carrier' => $carrier, 'service' => $service ];
@@ -148,6 +157,7 @@ class FrmEasypostShipmentRateModel extends FrmEasypostAbstractModel {
     public function multipleUpdateCreate( array $rows ) {
         $cols = [
             'easypost_id',
+            'easypost_shipment_id',
             'entry_id',
             'mode',
             'service',
@@ -169,6 +179,7 @@ class FrmEasypostShipmentRateModel extends FrmEasypostAbstractModel {
 
         $formats = [
             'easypost_id'               => '%s',
+            'easypost_shipment_id'      => '%s',
             'entry_id'                  => '%d',
             'mode'                      => '%s',
             'service'                   => '%s',

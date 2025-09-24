@@ -126,6 +126,17 @@ function frm_shipments_list_shortcode($atts = []) {
     $toggle_order = ($order === 'ASC') ? 'DESC' : 'ASC';
     $sort_url = $build_url(['fel_order' => $toggle_order, 'fel_page' => 1]);
 
+    $shipmentModel = new FrmEasypostShipmentModel();
+
+    // Add all data to Rows
+    foreach ($rows as $i => $row) {
+        $rows[$i] = $shipmentModel->getById( $row['id'] );
+    }
+
+    echo "<pre>";
+    print_r($rows);
+    echo "</pre>";
+
     ob_start();
     ?>
     <div class="frm-emails-wrap">

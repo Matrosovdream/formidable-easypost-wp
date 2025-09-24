@@ -13,6 +13,7 @@ class FrmEasypostShipmentParcelModel extends FrmEasypostAbstractModel {
     private const SORTABLE = [
         'id',
         'easypost_id',
+        'easypost_shipment_id',
         'entry_id',
         'length',
         'width',
@@ -51,6 +52,7 @@ class FrmEasypostShipmentParcelModel extends FrmEasypostAbstractModel {
 
         if ( isset( $filter['id'] ) && $filter['id'] !== '' ) { $where[] = 'id = %d'; $params[] = (int) $filter['id']; }
         if ( ! empty( $filter['easypost_id'] ) ) { $where[] = 'easypost_id = %s'; $params[] = (string) $filter['easypost_id']; }
+        if ( ! empty( $filter['easypost_shipment_id'] ) ) { $where[] = 'easypost_shipment_id = %s'; $params[] = (string) $filter['easypost_shipment_id']; }
         if ( isset( $filter['entry_id'] ) && $filter['entry_id'] !== '' ) { $where[] = 'entry_id = %d'; $params[] = (int) $filter['entry_id']; }
 
         // Ranged filters
@@ -111,6 +113,13 @@ class FrmEasypostShipmentParcelModel extends FrmEasypostAbstractModel {
         return $rows[0] ?? null;
     }
 
+    /** Single label by shipment_id */
+    public function getByShipmentId( string $shipmentId ) {
+        $rows = $this->getList( [ 'easypost_shipment_id' => $shipmentId ], [ 'limit' => 1 ] );
+        if ( is_wp_error( $rows ) ) { return $rows; }
+        return $rows[0] ?? null;
+    }
+
     /**
      * Bulk upsert for frm_easypost_shipment_parcel.
      * Unique key is 'easypost_id'.
@@ -118,6 +127,7 @@ class FrmEasypostShipmentParcelModel extends FrmEasypostAbstractModel {
     public function multipleUpdateCreate( array $rows ) {
         $cols = [
             'easypost_id',
+            'easypost_shipment_id',
             'entry_id',
             'length',
             'width',
@@ -127,6 +137,7 @@ class FrmEasypostShipmentParcelModel extends FrmEasypostAbstractModel {
 
         $formats = [
             'easypost_id' => '%s',
+            'easypost_shipment_id' => '%s',
             'entry_id'    => '%d',
             'length'      => '%f',
             'width'       => '%f',
