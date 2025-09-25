@@ -3,7 +3,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
  * Shortcode: [frm-shipments-list]
- * Same visual style as frm-emails-list
+ * Same visual style as frm-emails-list, plus:
+ * - Per-row "Show details" toggle (addresses, parcel, rate)
+ * - "Void" button (AJAX post to easyspot_void_shipment)
  */
 add_action('init', function () {
     add_shortcode('frm-shipments-list', 'frm_shipments_list_shortcode');
@@ -20,6 +22,14 @@ function frm_shipments_list_shortcode($atts = []) {
         esc_url(FRM_EAP_BASE_PATH . 'assets/css/easypost-shipments-list.css?time=' . time()),
         [],
         null
+    );
+
+    wp_enqueue_script(
+        'frm-shipments-list-js',
+        esc_url(FRM_EAP_BASE_PATH . 'assets/js/easypost-shipments-list.js?time=' . time()),
+        ['jquery'],
+        null,
+        true
     );
 
     global $wpdb;
@@ -44,7 +54,7 @@ function frm_shipments_list_shortcode($atts = []) {
     $order     = in_array($order, ['ASC','DESC'], true) ? $order : 'DESC';
 
     // Only sort by entry_id as requested
-    $order_by = 'entry_id';
+    $order_by = 'created_at';
 
     // Build WHERE + params (contains for tracking_code; exact for status; date range on created_at)
     $where  = [];
@@ -95,14 +105,20 @@ function frm_shipments_list_shortcode($atts = []) {
 
     $rows_args = array_merge($params, [ $per_page, $offset ]);
     $rows_prepared = $wpdb->prepare($rows_sql, $rows_args);
-    $rows = $wpdb->get_results($rows_prepared, ARRAY_A);
-    if ($rows === null) {
+    $rows_min = $wpdb->get_results($rows_prepared, ARRAY_A);
+    if ($rows_min === null) {
         return '<div style="color:#b00">DB query failed.</div>';
     }
 
+    // Expand each row via model (to get addresses/parcel/label/rate)
+    $shipmentModel = new FrmEasypostShipmentModel();
+    $rows = [];
+    foreach ($rows_min as $row) {
+        $rows[] = $shipmentModel->getById( (int)$row['id'] );
+    }
+
     // Status labels via the model
-    $model = new FrmEasypostShipmentModel();
-    $status_labels = $model->shipmentStatuses();
+    $status_labels = $shipmentModel->shipmentStatuses();
 
     // Persist current filters when building links
     $persist = [
@@ -126,20 +142,25 @@ function frm_shipments_list_shortcode($atts = []) {
     $toggle_order = ($order === 'ASC') ? 'DESC' : 'ASC';
     $sort_url = $build_url(['fel_order' => $toggle_order, 'fel_page' => 1]);
 
-    $shipmentModel = new FrmEasypostShipmentModel();
+    // Nonce for voiding
+    $void_nonce = wp_create_nonce('easyspot_void_shipment');
+    $ajax_url   = admin_url('admin-ajax.php');
 
-    // Add all data to Rows
-    foreach ($rows as $i => $row) {
-        $rows[$i] = $shipmentModel->getById( $row['id'] );
-    }
-
+    /*
     echo "<pre>";
     print_r($rows);
     echo "</pre>";
+    */
 
     ob_start();
     ?>
-    <div class="frm-emails-wrap">
+
+    <?php
+    // Void confirmation modal
+    echo do_shortcode('[easypost-void-modal]');  
+    ?>
+
+    <div class="frm-emails-wrap frm-shipments-wrap">
         <?php $reset_url = esc_url( get_permalink() ); ?>
         <form method="get" class="frm-emails-filters" action="<?php echo esc_url( get_permalink() ); ?>">
             <div class="field">
@@ -193,7 +214,7 @@ function frm_shipments_list_shortcode($atts = []) {
             </div>
         </form>
 
-        <table class="frm-emails-table">
+        <table class="frm-emails-table frm-shipments-table">
             <thead>
             <tr>
                 <th><a href="<?php echo esc_url($sort_url); ?>">Entry ID <?php echo $order === 'ASC' ? '▲' : '▼'; ?></a></th>
@@ -202,13 +223,16 @@ function frm_shipments_list_shortcode($atts = []) {
                 <th>Refund Status</th>
                 <th>Created At</th>
                 <th>Tracking URL</th>
+                <th style="text-align:right;">Actions</th>
             </tr>
             </thead>
             <tbody>
             <?php if (empty($rows)): ?>
-                <tr><td colspan="6" class="frm-empty">No results.</td></tr>
+                <tr><td colspan="7" class="frm-empty">No results.</td></tr>
             <?php else: foreach ($rows as $r):
-                $entryVal     = isset($r['entry_id']) ? (int)$r['entry_id'] : 0;
+                $id           = (int)($r['id'] ?? 0);
+                $ep_id        = (string)($r['easypost_id'] ?? '');
+                $entryVal     = (int)($r['entry_id'] ?? 0);
                 $trackingCode = (string)($r['tracking_code'] ?? '');
                 $statusVal    = (string)($r['status'] ?? '');
                 $statusText   = $status_labels[$statusVal] ?? $statusVal;
@@ -216,9 +240,26 @@ function frm_shipments_list_shortcode($atts = []) {
                 $createdRaw   = (string)($r['created_at'] ?? '');
                 $createdFmt   = $createdRaw ? date_i18n('Y-m-d H:i', strtotime($createdRaw)) : '';
                 $url          = trim((string)($r['tracking_url'] ?? ''));
+                $isRefundable = $r['is_refundable'] ?? false;
+
+                // Sub-blocks
+                $addrFrom = $r['addresses']['from'] ?? [];
+                $addrTo   = $r['addresses']['to'] ?? [];
+                $parcel   = $r['parcel'] ?? [];
+                $rate     = $r['rate'] ?? [];
+                $rowKey   = 'fs-details-' . $id;
             ?>
+                <!-- Main row -->
                 <tr>
-                    <td><?php echo $entryVal ? (int)$entryVal : ''; ?></td>
+                    <td class="entry-id-cell">
+                        <?php echo $entryVal ?: ''; ?>
+                        <button type="button"
+                                class="fs-details-toggle"
+                                data-target="<?php echo esc_attr($rowKey); ?>"
+                                aria-expanded="false">
+                            Show details
+                        </button>
+                    </td>
                     <td class="frm-td-break"><?php echo esc_html($trackingCode); ?></td>
                     <td><?php echo esc_html($statusText); ?></td>
                     <td><?php echo esc_html($refund); ?></td>
@@ -229,6 +270,64 @@ function frm_shipments_list_shortcode($atts = []) {
                         <?php else: ?>
                             <span class="frm-dash">—</span>
                         <?php endif; ?>
+                    </td>
+                    <td style="text-align:right; white-space:nowrap;">
+
+                        <?php if ($isRefundable): ?>
+                            <button type="button"
+                                    class="button button-link-delete fs-void-btn"
+                                    id="easypost-void-confirm"
+                                    data-void-nonce="<?php echo esc_attr($void_nonce); ?>"
+                                    data-ajax="<?php echo esc_url($ajax_url); ?>"
+                                    data-ep-id="<?php echo esc_attr($ep_id); ?>"
+                                    data-row-id="<?php echo $entryVal ?: ''; ?>">
+                                Void
+                            </button>
+                        <?php endif; ?>
+                        
+                    </td>
+                </tr>
+
+                <!-- Details row (hidden by default) -->
+                <tr id="<?php echo esc_attr($rowKey); ?>" class="fs-details-row" style="display:none;">
+                    <td colspan="7">
+                        <div class="fs-details-wrap">
+                            <div class="fs-details-grid">
+                                <div class="fs-card">
+                                    <div class="fs-card-title">Address From</div>
+                                    <?php echo fs_render_address_block($addrFrom); ?>
+                                </div>
+                                <div class="fs-card">
+                                    <div class="fs-card-title">Address To</div>
+                                    <?php echo fs_render_address_block($addrTo); ?>
+                                </div>
+                                <div class="fs-card">
+                                    <div class="fs-card-title">Parcel</div>
+                                    <table class="fs-mini-table">
+                                        <tbody>
+                                        <tr><th>Length</th><td><?php echo esc_html($parcel['length'] ?? ''); ?></td></tr>
+                                        <tr><th>Width</th><td><?php echo esc_html($parcel['width'] ?? ''); ?></td></tr>
+                                        <tr><th>Height</th><td><?php echo esc_html($parcel['height'] ?? ''); ?></td></tr>
+                                        <tr><th>Weight</th><td><?php echo esc_html($parcel['weight'] ?? ''); ?></td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="fs-card">
+                                    <div class="fs-card-title">Rate</div>
+                                    <table class="fs-mini-table">
+                                        <tbody>
+                                        <tr><th>Service</th><td><?php echo esc_html($rate['service'] ?? ''); ?></td></tr>
+                                        <tr><th>Carrier</th><td><?php echo esc_html($rate['carrier'] ?? ''); ?></td></tr>
+                                        <tr><th>Rate</th><td><?php echo esc_html(isset($rate['rate']) ? (string)$rate['rate'] : ''); ?> <?php echo esc_html($rate['currency'] ?? ''); ?></td></tr>
+                                        <tr><th>Delivery days</th><td><?php echo esc_html($rate['delivery_days'] ?? ''); ?></td></tr>
+                                        <tr><th>Delivery date</th><td><?php echo esc_html($rate['delivery_date'] ?? ''); ?></td></tr>
+                                        <tr><th>Guaranteed</th><td><?php echo !empty($rate['delivery_date_guaranteed']) ? 'Yes' : 'No'; ?></td></tr>
+                                        <tr><th>Est. days</th><td><?php echo esc_html($rate['est_delivery_days'] ?? ''); ?></td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; endif; ?>
@@ -267,6 +366,7 @@ function frm_shipments_list_shortcode($atts = []) {
                 <span class="frm-muted">Showing page <?php echo (int)$page; ?> of <?php echo (int)$total_pages; ?> (<?php echo (int)$total; ?> total)</span>
             </div>
         </div>
+
     </div>
     <?php
     return ob_get_clean();
@@ -284,4 +384,38 @@ function frm_shipments_to_mysql_dt($val, $endOfDay = false) {
     }
     $ts = strtotime($val);
     return $ts ? gmdate('Y-m-d H:i:s', $ts) : $val;
+}
+
+/**
+ * Small renderer for address blocks
+ * Expected keys:
+ *  name, company, street1, street2, city, state, zip, country, phone, email
+ */
+function fs_render_address_block($addr) {
+    $fields = [
+        'name'    => 'Name',
+        'company' => 'Company',
+        'street1' => 'Address 1',
+        'street2' => 'Address 2',
+        'city'    => 'City',
+        'state'   => 'State',
+        'zip'     => 'ZIP',
+        'country' => 'Country',
+        'phone'   => 'Phone',
+        'email'   => 'Email',
+    ];
+
+    ob_start(); ?>
+    <table class="fs-mini-table">
+        <tbody>
+        <?php foreach ($fields as $k => $label): ?>
+            <tr>
+                <th><?php echo esc_html($label); ?></th>
+                <td><?php echo esc_html( isset($addr[$k]) ? (string)$addr[$k] : '' ); ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php
+    return ob_get_clean();
 }
