@@ -16,6 +16,12 @@ add_filter('frm_easypost_shipment_pre_create_data', function ($data) {
 
     $uspsTimezone = (new FrmEasypostSettingsHelper())->getUspsTimezone();
 
+    // Set a server timezone to match your WordPress settings
+    date_default_timezone_set( get_option('timezone_string') );
+
+    // Set 
+    $data['created_at'] = date('Y-m-d\TH:i:s\Z');
+
     if (
         $chosenCarrier && 
         isset($carrierAccounts[$chosenCarrier]) &&
