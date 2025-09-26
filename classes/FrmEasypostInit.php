@@ -111,9 +111,16 @@ class FrmEasypostInit {
 
     private function include_cron() {
 
+        // Abstract cron class
+        require_once FRM_EAP_BASE_URL.'/classes/cron/FrmEasypostAbstractCron.php';
+
         // Shipments cron
         require_once FRM_EAP_BASE_URL.'/classes/cron/FrmEasypostShipmentsCron.php';
         FrmEasypostShipmentsCron::init();
+
+        // Update entry status cron
+        require_once FRM_EAP_BASE_URL.'/classes/cron/FrmUpdateEntryStatusCron.php';
+        FrmUpdateEntryStatusCron::init();
 
     }
 
