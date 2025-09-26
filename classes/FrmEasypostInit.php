@@ -33,6 +33,9 @@ class FrmEasypostInit {
         // Ajax actions
         $this->include_ajax();
 
+        // Formidable Addons
+        $this->include_frm_addons();
+
     }
 
     private function include_migrations() {
@@ -169,6 +172,13 @@ class FrmEasypostInit {
 
         // Void shipment ajax
         require_once FRM_EAP_BASE_URL.'/actions/ajax/easypost_void_shipment.php';
+
+    }
+
+    private function include_frm_addons() {
+
+        // Update entry status on form submission
+        require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/FrmUpdateApplyForm.php';
 
     }
 
