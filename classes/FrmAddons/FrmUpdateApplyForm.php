@@ -2,6 +2,8 @@
 
 class FrmUpdateApplyForm {
 
+    const FORM_ID = 1;
+
     /**
      * Update Formidable entry status field [7] from "Processing-X" to "Verified"
      * based on specific field conditions.
@@ -34,15 +36,16 @@ class FrmUpdateApplyForm {
         $field670 = $metas[670] ?? '';
         $field328 = $metas[328] ?? '';
         $field70  = $metas[70]  ?? '';
-    
+
         // Check initial condition
         if ($field7 === 'Processing-X') {
+
             $hasVerified     = in_array('verified', (array)$field273, true);
-            $notMissingInfo  = !in_array('missing-info', (array)$field273, true);
             $hasPhotoStatus  = ($field670 === 'photo-done' || $field328 === 'photo-no');
+            $notMissingInfo  = !in_array('missing-info', (array)$field273, true);
             $notProvideLater = ($field70 !== 'Provide Later'); 
     
-            if ($hasVerified && $notMissingInfo && $hasPhotoStatus && $notProvideLater) {
+            if ( $hasVerified && $hasPhotoStatus && $notMissingInfo && $notProvideLater ) {
                 // If [7] exists in metas, update; otherwise add
                 $field7Exists = array_key_exists(7, $metas);
         
@@ -55,5 +58,56 @@ class FrmUpdateApplyForm {
 
         }
     }
+
+    public function updateAllEntries( ?int $formId = null, int $batchSize = 500 ): int {
+        global $wpdb;
+    
+        $formId = $formId ?: self::FORM_ID;
+        $batchSize = max(1, (int) $batchSize);
+    
+        $table = $wpdb->prefix . 'frm_items';
+        $offset = 0;
+        $processed = 0;
+    
+        // Optional: reduce cache churn while doing bulk updates
+        if ( function_exists('wp_suspend_cache_addition') ) {
+            wp_suspend_cache_addition(true);
+        }
+    
+        // Process in batches to avoid timeouts/memory spikes
+        while ( true ) {
+            // Get a batch of entry IDs for this form
+            $ids = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT id FROM {$table} WHERE form_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
+                    (int) $formId,
+                    (int) $batchSize,
+                    (int) $offset
+                )
+            );
+    
+            if ( empty($ids) ) {
+                break;
+            }
+    
+            foreach ( $ids as $id ) {
+
+                if( $id != 17076 ) continue; // For testing a single entry
+
+                $this->updateEntryStatus( (int) $id );
+                $processed++;
+            }
+    
+            $offset += $batchSize;
+        }
+    
+        // Re-enable cache additions if we disabled it
+        if ( function_exists('wp_suspend_cache_addition') ) {
+            wp_suspend_cache_addition(false);
+        }
+    
+        return $processed; // number of entries processed
+    }
+    
 
 }
