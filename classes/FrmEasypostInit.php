@@ -151,6 +151,9 @@ class FrmEasypostInit {
         // Label bought action
         require_once FRM_EAP_BASE_URL.'/actions//admin/frm_easypost_label_bought.php';
 
+        // Create/update Formidable entry and save PDF 
+        require_once FRM_EAP_BASE_URL.'/actions//admin/frm_after_create_entry_pdf.php';
+
     }
 
     private function include_filters() {
@@ -186,6 +189,9 @@ class FrmEasypostInit {
 
         // Update entry status on form submission
         require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/FrmUpdateApplyForm.php';
+
+        // Save entry PDF class
+        require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/FrmSaveEntryPdf.php';
 
     }
 
