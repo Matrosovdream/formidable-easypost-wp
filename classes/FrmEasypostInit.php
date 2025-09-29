@@ -36,6 +36,9 @@ class FrmEasypostInit {
         // Formidable Addons
         $this->include_frm_addons();
 
+        // Routes
+        $this->include_routes();
+
     }
 
     private function include_migrations() {
@@ -151,8 +154,8 @@ class FrmEasypostInit {
         // Label bought action
         require_once FRM_EAP_BASE_URL.'/actions//admin/frm_easypost_label_bought.php';
 
-        // Create/update Formidable entry and save PDF 
-        require_once FRM_EAP_BASE_URL.'/actions//admin/frm_after_create_entry_pdf.php';
+        // Create/update Formidable entry 
+        require_once FRM_EAP_BASE_URL.'/actions//admin/frm_after_create_update_entry.php';
 
     }
 
@@ -192,6 +195,13 @@ class FrmEasypostInit {
 
         // Save entry PDF class
         require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/FrmSaveEntryPdf.php';
+
+    }
+
+    private function include_routes() {
+
+        // Register rewrite + query var
+        require_once FRM_EAP_BASE_URL.'/routes/frm-entry-pdf.php';
 
     }
 
