@@ -33,19 +33,24 @@ class FrmUpdateApplyForm {
         // Get field values safely
         $field7   = $metas[7]   ?? '';
         $field273 = $metas[273] ?? ''; // Array
-        $field670 = $metas[670] ?? '';
-        $field328 = $metas[328] ?? '';
+        $field670 = $metas[670] ?? ''; // Array
+        $field328 = $metas[328] ?? ''; // Array
         $field70  = $metas[70]  ?? '';
 
         // Check initial condition
         if ($field7 === 'Processing-X') {
 
+            if( empty($field273) ) { $field273 = []; }
+            if( empty($field670) ) { $field670 = []; }
+            if( empty($field328) ) { $field328 = []; }
+
             $hasVerified     = in_array('verified', (array)$field273, true);
-            $hasPhotoStatus  = ($field670 === 'photo-done' || $field328 === 'photo-no');
             $notMissingInfo  = !in_array('missing-info', (array)$field273, true);
-            $notProvideLater = ($field70 !== 'Provide Later'); 
-    
+            $hasPhotoStatus  = ( in_array('photo-done', $field670) || in_array('photo-no', $field328) );
+            $notProvideLater = ( $field70 !== 'Provide Later' ); 
+
             if ( $hasVerified && $hasPhotoStatus && $notMissingInfo && $notProvideLater ) {
+
                 // If [7] exists in metas, update; otherwise add
                 $field7Exists = array_key_exists(7, $metas);
         
@@ -92,7 +97,7 @@ class FrmUpdateApplyForm {
     
             foreach ( $ids as $id ) {
 
-                if( $id != 17076 ) continue; // For testing a single entry
+                if( $id != 17029 ) continue; // For testing a single entry
 
                 $this->updateEntryStatus( (int) $id );
                 $processed++;
