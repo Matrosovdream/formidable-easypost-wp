@@ -112,15 +112,19 @@ add_shortcode('easypost-shipments', function ($atts) {
             $refundStatus  = (string)($s['refund_status'] ?? '');
             $tracking_url  = (string)($s['tracking_url'] ?? '');
 
-            if( $refundStatus !== '' ) {
-                continue;
-            }
+            if( $refundStatus !== '' ) { /* continue; */ }
 
             if (!empty($s['label']) && is_array($s['label'])) {
                 $label_url = (string)($s['label']['label_url'] ?? $s['label']['url'] ?? '');
             }
+
+            $isVoided = ($refundStatus !== '');
         ?>
-            <div class="easyspot-shipment" data-easypost-id="<?php echo esc_attr($easypost_id); ?>">
+            <div 
+                class="easyspot-shipment" 
+                data-easypost-id="<?php echo esc_attr($easypost_id); ?>"
+                <?php if( $refundStatus !== '' ) { ?> style="opacity: 0.65" <?php } ?>
+                >
                 <div class="easyspot-info">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <strong>Track Number:</strong>
@@ -149,6 +153,13 @@ add_shortcode('easypost-shipments', function ($atts) {
                        onClick="window.open('<?php echo esc_attr($label_url); ?>','Print label','width=610,height=700'); return false;">
                         Print Label
                     </a>
+
+                    <?php if ($isVoided) { ?>
+                        <!-- Big "Voided" flag placed right next to Print Label -->
+                        <span class="easyspot-voided-flag" aria-label="Shipment has been voided">
+                            Voided
+                        </span>
+                    <?php } ?>
 
                     <?php if( $isRefundable ) { ?>
                         <button class="easyspot-btn js-easyspot-void-open"
