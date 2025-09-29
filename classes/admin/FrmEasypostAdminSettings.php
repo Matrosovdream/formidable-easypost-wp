@@ -2,7 +2,7 @@
 /**
  * EasyPost Admin Settings (single-column)
  * + Smarty API Credentials block (Auth ID / Auth Token)
- * + "Service addresses" subpage with repeatable table
+ * + "Service addresses" subpage with repeatable table (saved via admin-post.php to avoid WAF 403)
  * + "Label Messages" section with label_message1 / label_message2
  * + "Allowed carriers" section with repeatable table (carrier + services CSV)
  * + "USPS settings" section with integer timezone
@@ -19,6 +19,9 @@ final class FrmEasypostAdminSettings {
     public function __construct() {
         add_action( 'admin_menu', [ $this, 'register_menus' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
+
+        // admin-post handler (Fix A: bypass options.php for service addresses)
+        add_action( 'admin_post_frm_easypost_save_addresses', [ $this, 'handle_save_addresses' ] );
 
         // If this file is not the main plugin file, move this filter to the bootstrap file.
         add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), [ $this, 'plugin_quick_link' ] );
@@ -63,7 +66,7 @@ final class FrmEasypostAdminSettings {
     }
 
     /**
-     * Register settings
+     * Register settings (Settings API sections/fields)
      */
     public function register_settings(): void {
         register_setting( 'frm_easypost', self::OPTION_NAME, [
@@ -283,7 +286,12 @@ final class FrmEasypostAdminSettings {
                 @media (max-width:782px){ .frm-grid-2 { grid-template-columns:1fr; } }
                 .regular-text.full { width:100%; }
                 .regular-text1.full { width:100%; }
+                .notice.is-success { border-left-color:#46b450; }
             </style>
+
+            <?php if ( isset($_GET['settings-updated']) && $_GET['settings-updated'] ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved.','frm-easypost'); ?></p></div>
+            <?php endif; ?>
 
             <form method="post" action="options.php">
                 <?php settings_fields( 'frm_easypost' ); ?>
@@ -377,6 +385,7 @@ final class FrmEasypostAdminSettings {
 
     /**
      * Service addresses page (separate subpage/slugs/sections)
+     * Uses custom admin-post handler to avoid WAF 403 on options.php
      */
     public function render_service_addresses_page(): void {
         if ( ! current_user_can( 'manage_options' ) ) {
@@ -391,6 +400,10 @@ final class FrmEasypostAdminSettings {
                 <?php esc_html_e( 'EasyPost — Service addresses', 'frm-easypost' ); ?>
             </h1>
 
+            <?php if ( isset($_GET['saved']) && $_GET['saved'] == '1' ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Addresses saved.','frm-easypost'); ?></p></div>
+            <?php endif; ?>
+
             <style>
                 .frm-easypost-settings .card {background:#fff;border:1px solid #dcdcdc;border-radius:10px;padding:18px;margin:18px 0;max-width:100%}
                 .frm-easypost-table {width:100%;border-collapse:collapse}
@@ -402,8 +415,9 @@ final class FrmEasypostAdminSettings {
                 .regular-text1.full { width:100%; }
             </style>
 
-            <form method="post" action="options.php">
-                <?php settings_fields( 'frm_easypost' ); ?>
+            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+                <input type="hidden" name="action" value="frm_easypost_save_addresses" />
+                <?php wp_nonce_field( 'frm_easypost_service_addresses' ); ?>
 
                 <div class="card">
                     <?php do_settings_sections( 'frm_easypost_service' ); ?>
@@ -438,29 +452,29 @@ final class FrmEasypostAdminSettings {
                 const tmpl = `
                 <tr>
                     <td>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][name]" value="" placeholder="Name" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][name]" value="" placeholder="Name" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][company]" value="" placeholder="Company" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][company]" value="" placeholder="Company" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][phone]" value="" placeholder="Phone" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][phone]" value="" placeholder="Phone" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][proc_time]" value="" placeholder="Processing Time" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][proc_time]" value="" placeholder="Processing Time" />
                     </td>
                     <td>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][street1]" value="" placeholder="Street 1" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][street1]" value="" placeholder="Street 1" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][street2]" value="" placeholder="Street 2 (optional)" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][street2]" value="" placeholder="Street 2 (optional)" />
                     </td>
                     <td>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][city]" value="" placeholder="City" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][city]" value="" placeholder="City" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="\${opt}[service_addresses][\${idx}][state]" value="" placeholder="State" />
+                        <input class="regular-text1 full" type="text" name="${opt}[service_addresses][${idx}][state]" value="" placeholder="State" />
                     </td>
-                    <td><input class="regular-text1" type="text" name="\${opt}[service_addresses][\${idx}][zip]" value="" placeholder="ZIP" /></td>
+                    <td><input class="regular-text1" type="text" name="${opt}[service_addresses][${idx}][zip]" value="" placeholder="ZIP" /></td>
                     <td>
-                        <input class="regular-text1" type="text" name="\${opt}[service_addresses][\${idx}][country]" value="US" placeholder="US" />
+                        <input class="regular-text1" type="text" name="${opt}[service_addresses][${idx}][country]" value="US" placeholder="US" />
                         <br/>
-                        <textarea class="regular-text1 full" rows="2" name="\${opt}[service_addresses][\${idx}][service_states]" placeholder=""></textarea>
+                        <textarea class="regular-text1 full" rows="2" name="${opt}[service_addresses][${idx}][service_states]" placeholder=""></textarea>
                     </td>
                     <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
                 </tr>`;
@@ -472,6 +486,70 @@ final class FrmEasypostAdminSettings {
         })();
         </script>
         <?php
+    }
+
+    /**
+     * admin-post handler for saving Service Addresses
+     * (Fix A: avoids WAF false-positives on options.php)
+     */
+    public function handle_save_addresses(): void {
+
+        if ( ! current_user_can('manage_options') ) {
+            wp_die( esc_html__('Insufficient permissions.', 'frm-easypost') );
+        }
+
+        check_admin_referer( 'frm_easypost_service_addresses' );
+
+        $input = $_POST[ self::OPTION_NAME ] ?? [];
+        if ( ! is_array( $input ) ) {
+            $input = [];
+        }
+
+        // Load current settings (so we only replace the service_addresses piece)
+        $sanitized = $this->get_settings();
+
+        // Sanitize only service_addresses here (same rules as sanitize_settings)
+        if ( isset( $input['service_addresses'] ) && is_array( $input['service_addresses'] ) ) {
+            $rows = array_values( array_filter( $input['service_addresses'], function( $row ) {
+                if ( ! is_array($row) ) return false;
+                return ! empty( $row['name'] ) || ! empty( $row['street1'] );
+            } ) );
+
+            $clean = [];
+            foreach ( $rows as $row ) {
+                $svcList  = array_filter( array_map( 'trim', explode( ',', (string)($row['service_states'] ?? '') ) ) );
+                $svcNorm  = implode( ', ', array_map( 'sanitize_text_field', $svcList ) );
+
+                $clean[] = [
+                    'name'           => sanitize_text_field( $row['name']    ?? '' ),
+                    'company'        => sanitize_text_field( $row['company'] ?? '' ),
+                    'phone'          => sanitize_text_field( $row['phone']   ?? '' ),
+                    'proc_time'      => sanitize_text_field( $row['proc_time'] ?? '' ),
+                    'street1'        => sanitize_text_field( $row['street1'] ?? '' ),
+                    'street2'        => sanitize_text_field( $row['street2'] ?? '' ),
+                    'city'           => sanitize_text_field( $row['city']    ?? '' ),
+                    'state'          => sanitize_text_field( $row['state']   ?? '' ),
+                    'zip'            => sanitize_text_field( $row['zip']     ?? '' ),
+                    'country'        => strtoupper( sanitize_text_field( $row['country'] ?? 'US' ) ),
+                    'service_states' => $svcNorm, // CSV string
+                ];
+            }
+            $sanitized['service_addresses'] = $clean;
+        } else {
+            // If nothing posted, treat as clearing the list
+            $sanitized['service_addresses'] = [];
+        }
+
+        update_option( self::OPTION_NAME, $sanitized, false );
+
+        // Redirect back with a success flag
+        wp_safe_redirect(
+            add_query_arg(
+                [ 'page' => 'frm-easypost-service-addresses', 'saved' => '1' ],
+                admin_url( 'admin.php' )
+            )
+        );
+        exit;
     }
 
     /**
@@ -504,7 +582,7 @@ final class FrmEasypostAdminSettings {
     }
 
     /**
-     * Sanitize callback (all fields)
+     * Sanitize callback (all fields except service_addresses when saved via admin-post)
      */
     public function sanitize_settings( array $input ): array {
         $output = $this->get_settings(); // start from existing + constants
@@ -549,7 +627,9 @@ final class FrmEasypostAdminSettings {
             $output['carrier_accounts'] = $clean;
         }
 
-        // service_addresses (includes service_states CSV)
+        // service_addresses
+        // NOTE: When saving via the Service Addresses page we use handle_save_addresses(),
+        // but keep this here so the array can still be persisted if posted through options.php (e.g., imports).
         if ( isset( $input['service_addresses'] ) && is_array( $input['service_addresses'] ) ) {
             $rows = array_values( array_filter( $input['service_addresses'], function( $row ) {
                 if ( ! is_array($row) ) return false;
@@ -818,7 +898,7 @@ final class FrmEasypostAdminSettings {
         if ( empty( $rows ) ) {
             $rows = [[
                 'name' => '', 'company' => '', 'street1' => '', 'street2' => '',
-                'city' => '', 'state' => '', 'zip' => '', 'country' => 'US', 'service_states' => '',
+                'city' => '', 'state' => '', 'zip' => '', 'country' => 'US', 'service_states' => '', 'phone' => '', 'proc_time' => '',
             ]];
         }
 
@@ -846,6 +926,8 @@ final class FrmEasypostAdminSettings {
                 $zip     = (string) ( $row['zip']     ?? '' );
                 $country = (string) ( $row['country'] ?? 'US' );
                 $service_states = (string) ( $row['service_states'] ?? '' );
+                $phone   = (string) ( $row['phone'] ?? '' );
+                $proc    = (string) ( $row['proc_time'] ?? '' );
             ?>
                 <tr>
                     <td>
@@ -853,9 +935,9 @@ final class FrmEasypostAdminSettings {
                         <br/>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][company]" value="<?php echo esc_attr($company); ?>" placeholder="Company" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][phone]" value="<?php echo esc_attr($row['phone'] ?? ''); ?>" placeholder="Phone" />
+                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][phone]" value="<?php echo esc_attr($phone); ?>" placeholder="Phone" />
                         <br/>
-                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][proc_time]" value="<?php echo esc_attr($row['proc_time'] ?? ''); ?>" placeholder="Processing Time" />
+                        <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][proc_time]" value="<?php echo esc_attr($proc); ?>" placeholder="Processing Time" />
                     </td>
                     <td>
                         <input class="regular-text1 full" type="text" name="<?php echo $opt; ?>[service_addresses][<?php echo (int)$i; ?>][street1]" value="<?php echo esc_attr($street1); ?>" placeholder="Street 1" />
@@ -1016,8 +1098,7 @@ function frm_easypost_get_allowed_carriers(): array {
 }
 
 /**
- * Returns an instance of FrmSmartyApi configured from settings/constants.
- * Throws if credentials are missing.
+ * Returns config for Smarty API
  */
 function frm_smarty_get_config(): array {
     $opts = get_option( 'frm_easypost', [] );
@@ -1044,18 +1125,6 @@ function frm_smarty_api(): FrmSmartyApi {
 
 /**
  * Drop-in filter for EasyPost $rates using "Allowed carriers" settings.
- *
- * Each $rate is expected to look like:
- * [
- *   'carrier' => 'USPS' or 'FedExDefault' ...,
- *   'service' => 'Express' or 'Standard_overnight' ...
- *   ... other keys ...
- * ]
- *
- * Behavior:
- *  - If no allowed carriers are configured, returns $rates unchanged.
- *  - If a carrier is listed with empty services, ALL services for that carrier are allowed.
- *  - Otherwise, only listed services (case-insensitive) are allowed.
  */
 function frm_easypost_filter_rates(array $rates): array {
     $allowed = frm_easypost_get_allowed_carriers(); // mapping lowercased carrier => array of lowercased services (may be empty)
