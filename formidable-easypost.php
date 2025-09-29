@@ -25,13 +25,17 @@ function FrmEasypostInit() {
     
     if( isset( $_GET['logg'] ) ) {
 
+        //saveEntryPdf();
+        streamOriginEntryPdf();
+        //saveEntryPdf();
+        //ApplyFormExtension();
         //voidShipment();
         //verifyAddressSmarty();
         //createLabel();
         //getShipments();
         //getPredefinedPackages();
         //verifyAddress();
-        getShipmentModel();
+        //getShipmentModel();
         //updateShipmentsApi();
         //getAddressesApi();
         //getEntryAddresses();
@@ -40,6 +44,42 @@ function FrmEasypostInit() {
         die();
 
     }
+
+}
+
+
+function saveEntryPdf() {
+
+    $entry_id = 17076;
+
+    $entryPdf = new FrmSaveEntryPdf();
+    $entryPdf->saveEntryPdf( $entry_id );
+
+}
+
+function streamOriginEntryPdf() {
+
+    $entry_id = 17076;
+
+    $entryPdf = new FrmSaveEntryPdf();
+    $entryPdf->streamOriginEntryPdf( $entry_id );
+
+}
+
+function streamEntryPdf() {
+
+    $entry_id = 17076;
+
+    $entryPdf = new FrmSaveEntryPdf();
+    $entryPdf->streamTmpEntryPdf( $entry_id );
+
+}
+
+
+function ApplyFormExtension() {
+    
+    $applyForm = new FrmUpdateApplyForm();
+    $applyForm->updateAllEntries();
 
 }
 
