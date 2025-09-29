@@ -26,7 +26,36 @@ class FrmUpdateApplyForm {
     public function updateEntryStatus($entry_id) {
 
         if (!$entry_id) { return; }
-    
+
+        $mappings = [
+            [
+                'form_id'        => 1,                 // OPTIONAL: restrict to a specific form
+                'status_field'   => 7,                 // target field [7]
+                'when_status_is' => 'Processing-X',    // only run when [7] = Processing-X
+                'set_status_to'  => 'Verified',        // value to set
+                'all' => [
+                    // AND group: [273] has "verified" AND not "missing-info"
+                    ['and' => [
+                        ['field' => 273, 'op' => 'in',     'value' => 'verified',     'field_type' => 'array'],
+                        ['field' => 273, 'op' => 'not_in', 'value' => 'missing-info', 'field_type' => 'array'],
+                    ]],
+        
+                    // OR group: [670] has "photo-done" OR [328] has "photo-no"
+                    ['any' => [
+                        ['field' => 670, 'op' => 'in', 'value' => 'photo-done', 'field_type' => 'array'],
+                        ['field' => 328, 'op' => 'in', 'value' => 'photo-no',   'field_type' => 'array'],
+                    ]],
+        
+                    // [70] != "Provide Later"
+                    ['field' => 70, 'op' => 'not_equals', 'value' => 'Provide Later'],
+                ],
+            ],
+        ];
+
+        $engine = new FrmEntryStatusRuleEngine();
+        $engine->applyMappings($entry_id, $mappings);
+
+        /*
         $helper = new FrmEasypostEntryHelper();
         $metas  = $helper->getEntryMetas((int) $entry_id);
     
@@ -62,6 +91,8 @@ class FrmUpdateApplyForm {
             }
 
         }
+        */
+
     }
 
     public function updateAllEntries( ?int $formId = null, int $batchSize = 500 ): int {
