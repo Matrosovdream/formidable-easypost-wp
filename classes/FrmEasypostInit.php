@@ -190,6 +190,9 @@ class FrmEasypostInit {
 
     private function include_frm_addons() {
 
+        // Frm Update Status Rules
+        require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/rules/FrmEntryStatusRuleEngine.php';
+
         // Update entry status on form submission
         require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/FrmUpdateApplyForm.php';
 
