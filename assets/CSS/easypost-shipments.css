@@ -20,3 +20,45 @@
 .easyspot-muted { color: #666; }
 .easyspot-btn-primary{ background:#2563eb; color:#fff; border-color:#1d4ed8; }
 .easyspot-btn-primary:hover{ background:#1d4ed8; }
+/* Prominent "Voided" flag next to Print Label */
+.easyspot-voided-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  background: #FEE2E2;   /* light red */
+  color: #991B1B;        /* deep red text */
+  border: 1px solid #FCA5A5; /* subtle border */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* If you want it even bigger on wider screens */
+@media (min-width: 640px) {
+  .easyspot-voided-flag {
+      font-size: 14px;
+  }
+}
+
+/* Optional: emphasize the card when voided */
+.easyspot-shipment.is-voided .easyspot-actions .easyspot-btn-primary {
+  /* you can dim the button text a touch if desired */
+  opacity: 0.9;
+}
+
+/* Optional: if you want the Voided badge to wrap under the button on small screens */
+@media (max-width: 480px) {
+  .easyspot-actions {
+      gap: 8px;
+      flex-wrap: wrap;
+  }
+  .easyspot-voided-flag {
+      margin-left: 0;
+  }
+}
+
