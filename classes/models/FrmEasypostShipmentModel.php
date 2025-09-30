@@ -67,32 +67,76 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
     public function getList( array $filter = [], array $opts = [] ) {
         $where  = [];
         $params = [];
-
+    
         if ( isset( $filter['id'] ) && $filter['id'] !== '' ) { $where[] = 'id = %d'; $params[] = (int) $filter['id']; }
         if ( ! empty( $filter['easypost_id'] ) ) { $where[] = 'easypost_id = %s'; $params[] = (string) $filter['easypost_id']; }
         if ( isset( $filter['entry_id'] ) && $filter['entry_id'] !== '' ) { $where[] = 'entry_id = %d'; $params[] = (int) $filter['entry_id']; }
         if ( ! empty( $filter['tracking_code'] ) ) { $where[] = 'tracking_code = %s'; $params[] = (string) $filter['tracking_code']; }
-        if ( ! empty( $filter['status'] ) ) { $where[] = 'status = %s'; $params[] = (string) $filter['status']; }
-        if ( ! empty( $filter['refund_status'] ) ) { $where[] = 'refund_status = %s'; $params[] = (string) $filter['refund_status']; }
+    
+        // ✅ status can be string OR array
+        if ( array_key_exists( 'status', $filter ) ) {
+            if ( is_array( $filter['status'] ) ) {
+                $list = array_values( array_filter( array_map( 'strval', $filter['status'] ), static fn( $s ) => $s !== '' ) );
+                if ( $list ) {
+                    $placeholders = implode( ',', array_fill( 0, count( $list ), '%s' ) );
+                    $where[] = "status IN ($placeholders)";
+                    array_push( $params, ...$list );
+                }
+            } elseif ( $filter['status'] !== '' ) {
+                $where[] = 'status = %s';
+                $params[] = (string) $filter['status'];
+            }
+        }
+
+        // ✅ refund_status: string|array|null
+        if ( array_key_exists( 'refund_status', $filter ) ) {
+            if ( is_array( $filter['refund_status'] ) ) {
+                $list = array_values( array_filter( array_map( 'strval', $filter['refund_status'] ), static fn( $s ) => $s !== '' ) );
+                if ( $list ) {
+                    $ph = implode( ',', array_fill( 0, count( $list ), '%s' ) );
+                    $where[] = "refund_status IN ($ph)";
+                    array_push( $params, ...$list );
+                }
+            } elseif ( $filter['refund_status'] === null ) {
+                $where[] = 'refund_status IS NULL';
+            } elseif ( $filter['refund_status'] !== '' ) {
+                $where[] = 'refund_status = %s';
+                $params[] = (string) $filter['refund_status'];
+            }
+        }
+    
         if ( ! empty( $filter['mode'] ) ) { $where[] = 'mode = %s'; $params[] = (string) $filter['mode']; }
         if ( isset( $filter['is_return'] ) && $filter['is_return'] !== '' ) { $where[] = 'is_return = %d'; $params[] = (int) $filter['is_return']; }
-
+    
         if ( ! empty( $filter['created_from'] ) ) { $where[] = 'created_at >= %s'; $params[] = $this->dateToMysql( $filter['created_from'] ); }
         if ( ! empty( $filter['created_to'] ) )   { $where[] = 'created_at <= %s'; $params[] = $this->dateToMysql( $filter['created_to'] ); }
         if ( ! empty( $filter['updated_from'] ) ) { $where[] = 'updated_at >= %s'; $params[] = $this->dateToMysql( $filter['updated_from'] ); }
         if ( ! empty( $filter['updated_to'] ) )   { $where[] = 'updated_at <= %s'; $params[] = $this->dateToMysql( $filter['updated_to'] ); }
-
+    
         if ( ! empty( $filter['search'] ) ) {
             $like = '%' . $this->db->esc_like( (string) $filter['search'] ) . '%';
             $where[]  = '(easypost_id LIKE %s OR tracking_code LIKE %s OR status LIKE %s OR refund_status LIKE %s OR mode LIKE %s)';
             $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
         }
-
+    
+        /**
+         * ✅ “Void eligibility” helper filters (optional)
+         * - void_statuses: string|array of statuses to match
+         * - void_after_days: int — created_at <= (now - N days)
+         *
+         * Use one or both. These simply add to WHERE with AND.
+         */
+        if ( isset( $filter['void_after_days'] ) && (int) $filter['void_after_days'] > 0 ) {
+            // Uses DB UTC time. If you prefer WP's notion of "now", swap with current_time( 'mysql', true ) and pass as %s.
+            $where[] = 'created_at <= (UTC_TIMESTAMP() - INTERVAL %d DAY)';
+            $params[] = (int) $filter['void_after_days'];
+        }
+    
         $whereSql = $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '';
-
+    
         $orderBy = isset( $opts['order_by'] ) && in_array( $opts['order_by'], self::SORTABLE, true ) ? $opts['order_by'] : 'created_at';
         $order   = ( isset( $opts['order'] ) && strtoupper( (string) $opts['order'] ) === 'ASC' ) ? 'ASC' : 'DESC';
-
+    
         $limit  = isset( $opts['limit'] ) ? max( 1, (int) $opts['limit'] ) : 50;
         $offset = isset( $opts['offset'] ) ? max( 0, (int) $opts['offset'] ) : 0;
         if ( isset( $opts['page'] ) || isset( $opts['per_page'] ) ) {
@@ -101,7 +145,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             $limit  = $pp;
             $offset = ( $page - 1 ) * $pp;
         }
-
+    
         $sql  = "SELECT * FROM {$this->table} {$whereSql} ORDER BY {$orderBy} {$order} LIMIT %d OFFSET %d";
         $args = array_merge( $params, [ $limit, $offset ] );
         $prepared = $this->db->prepare( $sql, $args );
@@ -114,6 +158,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         }
         return $rows;
     }
+    
 
     /** Get by id */
     public function getById( int $id ) {
