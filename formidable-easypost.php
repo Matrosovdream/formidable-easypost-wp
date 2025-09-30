@@ -26,7 +26,7 @@ function FrmEasypostInit() {
     if( isset( $_GET['logg'] ) ) {
 
         //saveEntryPdf();
-        streamOriginEntryPdf();
+        //streamOriginEntryPdf();
         //saveEntryPdf();
         //ApplyFormExtension();
         //voidShipment();
@@ -77,9 +77,11 @@ function streamEntryPdf() {
 
 
 function ApplyFormExtension() {
+
+    $entry_id = 17076;
     
     $applyForm = new FrmUpdateApplyForm();
-    $applyForm->updateAllEntries();
+    $applyForm->updateEntryStatus( $entry_id );
 
 }
 
