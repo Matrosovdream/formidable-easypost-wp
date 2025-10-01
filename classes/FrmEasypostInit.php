@@ -75,6 +75,9 @@ class FrmEasypostInit {
         // Shipment model
         require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentModel.php';
 
+        // Shipment Status model
+        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentStatusModel.php';
+
         // Shipment Address model
         require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentAddressModel.php';
 
