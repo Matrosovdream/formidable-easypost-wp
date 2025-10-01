@@ -261,7 +261,16 @@ class FrmEasypostShipmentHelper {
             return true;
         }
 
-        return false;
+        // Prepare errors
+        if( !$result['ok'] ) {
+            $errors = [];
+            foreach( $result['errors'] as $error ) {
+                $errors[] = $error['message'];
+            }
+            $result['errors'] = $errors;
+        }
+
+        return $result;
 
     }
 
