@@ -39,12 +39,18 @@ class FrmEasypostShipmentHelper {
 
         // Get orders from ShipStation API
         $shipments = $this->shipmentApi->getAllShipments(
-            1000, 
+            100, 
             isset($beforeId) ? $beforeId : null, 
             isset($afterId) ? $afterId : null
         );
 
-        return $this->updateShipmentsDB( $shipments );
+        // Split into chunks
+        $chunks = array_chunk($shipments, 300);
+        foreach( $chunks as $chunk ) {
+            $this->updateShipmentsDB( $chunk );
+        }
+
+        //return $this->updateShipmentsDB( $shipments );
 
     }
 
@@ -236,6 +242,27 @@ class FrmEasypostShipmentHelper {
             return new WP_Error( 'shipstation_trackingnumber_required', __( 'trackingNumber is required.', 'shipstation-wp' ), [ 'status' => 400 ] );
         }
         return $this->updateShipmentsApi( ['trackingNumber' => $trackingNumber] );
+    }
+
+    public function voidShipment( string $shipmentId ) {
+
+        if ( empty( $shipmentId ) ) {
+            return ;
+        }
+
+        $result = $this->shipmentApi->refundShipment( $shipmentId );
+
+        if( 
+            !is_wp_error( $result ) &&
+            $result['ok']
+            ) {
+            // Update shipment in DB
+            $this->updateShipmentApi( $shipmentId );
+            return true;
+        }
+
+        return false;
+
     }
 
 }
