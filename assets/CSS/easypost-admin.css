@@ -1,0 +1,15 @@
+/* Shared styles for both pages */
+.frm-eap-h1 { display:flex; align-items:center; gap:12px; }
+.frm-eap-h1-icon { font-size:28px; line-height:1; }
+
+.frm-eap-card { background:#fff; border:1px solid #dcdcdc; border-radius:10px; padding:18px; margin:18px 0; max-width:100%; }
+.frm-eap-stack { display:flex; flex-direction:column; gap:18px; }
+.frm-eap-muted { color:#666; margin-top:6px; }
+.frm-eap-lock { display:inline-flex; gap:6px; align-items:center; color:#2d6cdf; }
+
+.frm-eap-table { width:100%; border-collapse:collapse; }
+.frm-eap-table th, .frm-eap-table td { border:1px solid #e0e0e0; padding:8px; background:#fff; vertical-align:top; }
+.frm-eap-table th { background:#f6f7f7; text-align:left; }
+
+.frm-eap-actions { margin-top:8px; }
+.frm-eap-full { width:100%; }
