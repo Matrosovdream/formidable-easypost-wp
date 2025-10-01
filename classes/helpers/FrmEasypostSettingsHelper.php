@@ -28,6 +28,38 @@ class FrmEasypostSettingsHelper {
         ];
     }
 
+    public function getAddressByTag(string $tag): ?array {
+        $tag = trim($tag);
+        if ($tag === '') {
+            return null;
+        }
+    
+        $needle = function_exists('mb_strtolower') ? mb_strtolower($tag) : strtolower($tag);
+    
+        $settings = $this->getAllSettings();
+        $rows = isset($settings['service_addresses']) && is_array($settings['service_addresses'])
+            ? $settings['service_addresses'] : [];
+    
+        foreach ($rows as $row) {
+            $raw = (string)($row['tags'] ?? '');
+            if ($raw === '') {
+                continue;
+            }
+    
+            // Normalize the CSV tags on the row
+            $tags = array_filter(array_map('trim', explode(',', $raw)));
+            $tags = array_map(function($v){
+                return function_exists('mb_strtolower') ? mb_strtolower($v) : strtolower($v);
+            }, $tags);
+    
+            if (in_array($needle, $tags, true)) {
+                return $row;
+            }
+        }
+    
+        return null;
+    }
+
     public function getAllSettings() {
         return get_option('frm_easypost', []);
     }
