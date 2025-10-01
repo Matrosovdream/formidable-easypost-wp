@@ -94,7 +94,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     }
 
-    public function getAllShipments(int $pageSize = 20, ?string $beforeId = null, ?string $afterId = null): array
+    public function getAllShipments(int $pageSize = 100, ?string $beforeId = null, ?string $afterId = null): array
     {
 
         $params = ['page_size' => $pageSize];
@@ -106,8 +106,26 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
             $params['after_id'] = $afterId;
         }
 
+        // First run 
         $shipments = $this->client->shipment->all($params);
         $errors = $this->handleErrors($shipments);
+
+        while( $shipments->has_more ) {
+
+            $lastShipment = end($shipments->shipments);
+            $params['before_id'] = $lastShipment->id;
+
+            $nextPage = $this->client->shipment->all($params);
+            $errors = array_merge( $errors, $this->handleErrors($nextPage) );
+
+            if( empty($errors) && !empty($nextPage->shipments) ) {
+                $shipments->shipments = array_merge( $shipments->shipments, $nextPage->shipments );
+                $shipments->has_more = $nextPage->has_more;
+            } else {
+                break;
+            }
+
+        }
 
         if( !empty($shipments->shipments) ) {
             $preparedShipments = [];
