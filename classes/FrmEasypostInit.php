@@ -128,6 +128,10 @@ class FrmEasypostInit {
         require_once FRM_EAP_BASE_URL.'/classes/cron/FrmUpdateEntryStatusCron.php';
         FrmUpdateEntryStatusCron::init();
 
+        // Void shipments cron
+        require_once FRM_EAP_BASE_URL.'/classes/cron/FrmVoidShipmentsCron.php';
+        FrmVoidShipmentsCron::init();
+
     }
 
     private function include_shortcodes() {
