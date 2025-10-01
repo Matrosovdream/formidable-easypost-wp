@@ -32,7 +32,7 @@ class FrmEasypostShipmentsCron {
         if ( ! class_exists( 'FrmEasypostShipmentHelper' ) ) { return; }
         try {
             $model = new FrmEasypostShipmentHelper();
-            $res   = $model->updateShipmentsApi();
+            //$res   = $model->updateShipmentsApi();
             if ( is_wp_error( $res ) ) {
                 error_log( '[Easypost] updateShipmentsApi error: ' . $res->get_error_message() );
             }
