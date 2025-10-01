@@ -217,6 +217,47 @@ final class FrmEasypostAdminSettings {
             ]
         );
 
+        // --- Section: Shipment management
+        add_settings_section(
+            'frm_easypost_ship_mgmt',
+            __( 'Shipment management', 'frm-easypost' ),
+            function () {
+                echo '<p>' . esc_html__( 'Configure auto-void behavior for shipments.', 'frm-easypost' ) . '</p>';
+            },
+            'frm_easypost'
+        );
+
+        // Field: Void Statuses (multi-select)
+        add_settings_field(
+            'void_statuses',
+            __( 'Void Statuses', 'frm-easypost' ),
+            [ $this, 'field_multiselect_statuses' ],
+            'frm_easypost',
+            'frm_easypost_ship_mgmt',
+            [
+                'key'     => 'void_statuses',
+                'options' => $this->get_status_options(), // [key => label]
+                'help'    => __( 'Shipments in any of these statuses will be eligible for auto-void after the selected number of days.', 'frm-easypost' ),
+            ]
+        );
+
+        // Field: Void after (days)
+        add_settings_field(
+            'void_after_days',
+            __( 'Void after (days)', 'frm-easypost' ),
+            [ $this, 'field_number' ],
+            'frm_easypost',
+            'frm_easypost_ship_mgmt',
+            [
+                'key'         => 'void_after_days',
+                'placeholder' => 'e.g. 7',
+                'min'         => 0,
+                'max'         => 365,
+                'step'        => 1,
+                'help'        => __( 'Number of days after which an eligible shipment should be voided. Set 0 to disable.', 'frm-easypost' ),
+            ]
+        );
+
         /**
          * PAGE: Service addresses (page slug for sections below is 'frm_easypost_service')
          */
@@ -250,9 +291,12 @@ final class FrmEasypostAdminSettings {
             'service_addresses'  => [],
             'label_message1'     => '',
             'label_message2'     => '',
-            'allowed_carriers'   => [], // each row: ['carrier' => 'USPS', 'services' => 'Express, Priority']
-            // NEW:
-            'usps_timezone'      => 0,  // integer UTC offset (e.g., -8 for America/Los_Angeles)
+            'allowed_carriers'   => [],
+            'usps_timezone'      => 0,
+    
+            // NEW: Shipment management
+            'void_statuses'      => [],  // array of status keys
+            'void_after_days'    => 0,   // int >= 0; 0 = disabled
         ];
     }
 
@@ -701,6 +745,23 @@ final class FrmEasypostAdminSettings {
             $output['usps_timezone'] = $tz;
         }
 
+        // --- Shipment management: void_statuses
+        if ( isset( $input['void_statuses'] ) ) {
+            $validKeys = array_keys( $this->get_status_options() );
+            $vals = is_array( $input['void_statuses'] ) ? $input['void_statuses'] : [];
+            $vals = array_values( array_unique( array_filter( array_map( 'sanitize_key', $vals ) ) ) );
+            // keep only valid statuses
+            $output['void_statuses'] = array_values( array_intersect( $vals, $validKeys ) );
+        }
+
+        // --- Shipment management: void_after_days
+        if ( isset( $input['void_after_days'] ) ) {
+            $days = (int) $input['void_after_days'];
+            if ( $days < 0 )   $days = 0;
+            if ( $days > 365 ) $days = 365;
+            $output['void_after_days'] = $days;
+        }
+
         return $output;
     }
 
@@ -970,6 +1031,71 @@ final class FrmEasypostAdminSettings {
         </div>
         <?php
     }
+
+    /**
+     * Field: multiselect for statuses
+     */
+    public function field_multiselect_statuses( array $args = [] ): void {
+        $key     = $args['key'] ?? 'void_statuses';
+        $options = $args['options'] ?? [];
+        $help    = $args['help'] ?? '';
+
+        $saved   = $this->get_settings()[ $key ] ?? [];
+        if ( ! is_array( $saved ) ) $saved = [];
+
+        printf(
+            '<select name="%1$s[%2$s][]" multiple size="8" class="regular-text" style="min-width:280px;">',
+            esc_attr( self::OPTION_NAME ),
+            esc_attr( $key )
+        );
+
+        foreach ( $options as $val => $label ) {
+            printf(
+                '<option value="%1$s"%2$s>%3$s</option>',
+                esc_attr( $val ),
+                selected( in_array( $val, $saved, true ), true, false ),
+                esc_html( $label )
+            );
+        }
+        echo '</select>';
+
+        if ( $help ) {
+            echo '<p class="description" style="margin:4px 0 0;">' . esc_html( $help ) . '</p>';
+        }
+    }
+
+    /**
+     * Build [key => label] from FrmEasypostShipmentStatusModel
+     */
+    private function get_status_options(): array {
+        try {
+            if ( class_exists( 'FrmEasypostShipmentStatusModel' ) ) {
+                $model = new FrmEasypostShipmentStatusModel();
+                $list  = $model->getList(); // [key => translatable label]
+                // Ensure it’s an array of strings
+                if ( is_array( $list ) ) {
+                    // Cast values to string to be safe
+                    return array_map( static fn($v) => (string) $v, $list );
+                }
+            }
+        } catch ( \Throwable $e ) {
+            // Fail silent; fallback below
+        }
+
+        // Fallback (should rarely be used)
+        return [
+            'unknown'              => __( 'Unknown', 'easypost-wp' ),
+            'pre_transit'          => __( 'Pre-Transit', 'easypost-wp' ),
+            'in_transit'           => __( 'In Transit', 'easypost-wp' ),
+            'out_for_delivery'     => __( 'Out for Delivery', 'easypost-wp' ),
+            'delivered'            => __( 'Delivered', 'easypost-wp' ),
+            'return_to_sender'     => __( 'Return to Sender', 'easypost-wp' ),
+            'available_for_pickup' => __( 'Available for Pickup', 'easypost-wp' ),
+            'failure'              => __( 'Failure', 'easypost-wp' ),
+            'cancelled'            => __( 'Cancelled', 'easypost-wp' ),
+        ];
+    }
+
 
     /**
      * Show a lock note when a setting is provided via wp-config constant
