@@ -39,6 +39,9 @@ class FrmEasypostInit {
         // Routes
         $this->include_routes();
 
+        // Webhooks
+        $this->include_webhooks();
+
     }
 
     private function include_migrations() {
@@ -212,6 +215,14 @@ class FrmEasypostInit {
 
         // Register rewrite + query var
         require_once FRM_EAP_BASE_URL.'/routes/frm-entry-pdf.php';
+
+    }
+
+    private function include_webhooks() {
+
+        // EasyPost webhook REST endpoint
+        require_once FRM_EAP_BASE_URL.'/webhooks/FrmEasypostWebhookRest.php';
+        FrmEasypostWebhookRest::init();
 
     }
 
