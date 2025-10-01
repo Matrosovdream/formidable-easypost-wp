@@ -25,6 +25,7 @@ function FrmEasypostInit() {
     
     if( isset( $_GET['logg'] ) ) {
 
+        voidShipments();
         //saveEntryPdf();
         //streamOriginEntryPdf();
         //saveEntryPdf();
@@ -44,6 +45,13 @@ function FrmEasypostInit() {
         die();
 
     }
+
+}
+
+function voidShipments() {
+
+    $helper = new FrmEasypostEntryHelper();
+    $helper->voidShipments();
 
 }
 
@@ -143,19 +151,19 @@ function createLabel() {
     $addresses = [
         "from_address" => [
             "company" => "EasyPost",
-            "street1" => "118 2nd Street",
+            "street1" => "11247 Tuxford St Unit B",
             "street2" => "4th Floor",
-            "city"    => "San Francisco",
+            "city"    => "Sun Valley",
             "state"   => "CA",
-            "zip"     => "94101",
+            "zip"     => "91352",
             "phone"   => "415-456-7890",
         ],
         "to_address" => [
             "name"    => "Dr. Steve Brule",
-            "street1" => "179 N Harbor Dr",
-            "city"    => "Redondo Beach",
-            "state"   => "CA",
-            "zip"     => "90277",
+            "street1" => "1801 Columbia Road, NW Suite 200",
+            "city"    => "Washington",
+            "state"   => "DC",
+            "zip"     => "20009",
             "phone"   => "310-808-5243",
         ],
     ];
@@ -242,7 +250,7 @@ function getShipmentModel() {
 function updateShipmentsApi() {
 
     $helper = new FrmEasypostShipmentHelper();
-    $res = $helper->updateShipmentsApi( ['pageSize' => 1000] );
+    $res = $helper->updateShipmentsApi( ['pageSize' => 100] );
 
     echo '<pre>';
     print_r($res);
