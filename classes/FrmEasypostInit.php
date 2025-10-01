@@ -4,7 +4,7 @@ class FrmEasypostInit {
     public function __construct() {
 
         // Admin classes
-        require_once FRM_EAP_BASE_URL.'/classes/admin/FrmEasypostAdminSettings.php';
+        $this->include_settings();
 
         // API class
         $this->include_api();
@@ -223,6 +223,14 @@ class FrmEasypostInit {
         // EasyPost webhook REST endpoint
         require_once FRM_EAP_BASE_URL.'/webhooks/FrmEasypostWebhookRest.php';
         FrmEasypostWebhookRest::init();
+
+    }
+
+    private function include_settings() {
+
+        require_once FRM_EAP_BASE_URL.'/classes/admin/FrmEasypostAdminAbstract.php';
+        require_once FRM_EAP_BASE_URL.'/classes/admin/FrmEasypostAdminSettings.php';
+        require_once FRM_EAP_BASE_URL.'/classes/admin/FrmEasypostAdminAddresses.php';
 
     }
 
