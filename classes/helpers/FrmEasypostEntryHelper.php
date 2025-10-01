@@ -135,4 +135,46 @@ class FrmEasypostEntryHelper {
 
     }
 
+    public function voidShipments() {
+
+        $settings = (new FrmEasypostSettingsHelper())->getVoidShipment();
+        $shipmentHelper = new FrmEasypostShipmentHelper();
+
+        if( empty( $settings['void_after_days'] ) || $settings['void_after_days'] <= 0 ) {
+            return;
+        }   
+        
+
+        $shipmentModel = new FrmEasypostShipmentModel();
+        $shipments = $shipmentModel->getList(
+            [
+                'status'  => $settings['void_statuses'],
+                'void_after_days'=> $settings['void_after_days'],
+                'refund_status' => null, // We don't take already refunded shipments
+            ],
+            ['limit' => 10000]
+        );
+
+        //$shipments = array_slice($shipments, 0, 3); 
+
+        $result = [];
+        foreach( $shipments as $shipment ) {
+            //$result[] = $shipmentHelper->voidShipment( $shipment['easypost_id'] );
+        }
+
+        echo '<pre>';
+        print_r($settings);
+        echo '</pre>';
+
+        echo "<pre>";
+        print_r($result);
+        echo "</pre>";
+
+        echo '<pre>';
+        print_r($shipments);
+        echo '</pre>';
+            
+
+    }
+
 }
