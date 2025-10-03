@@ -1,0 +1,5 @@
+{
+    "require": {
+        "easypost/easypost-php": "^8.2"
+    }
+}
