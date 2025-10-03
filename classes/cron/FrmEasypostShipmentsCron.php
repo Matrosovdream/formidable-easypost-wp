@@ -29,10 +29,13 @@ class FrmEasypostShipmentsCron {
 
     /** The job handler — calls your model's updateShipmentsApi() */
     public static function run_update_shipments(): void {
+
+        /*
         if ( ! class_exists( 'FrmEasypostShipmentHelper' ) ) { return; }
         try {
             $model = new FrmEasypostShipmentHelper();
-            //$res   = $model->updateShipmentsApi();
+            $res   = $model->updateShipmentsApi();
+
             if ( is_wp_error( $res ) ) {
                 error_log( '[Easypost] updateShipmentsApi error: ' . $res->get_error_message() );
             }
@@ -40,6 +43,8 @@ class FrmEasypostShipmentsCron {
         } catch ( \Throwable $e ) {
             error_log( '[Easypost] Cron exception: ' . $e->getMessage() );
         }
+        */
+
     }
 
     /** Called on plugin activation */
