@@ -254,6 +254,10 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             'pre_transit',
         ];
 
+        if( $shipment['refund_status'] != '' ) {
+            return false;
+        }
+
         if( 
             ! in_array( $shipment['status'], $allowedStatuses, true )
             ) {
