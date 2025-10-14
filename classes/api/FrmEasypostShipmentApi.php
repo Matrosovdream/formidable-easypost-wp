@@ -16,7 +16,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
         $errors = $this->handleErrors($res);
 
         if( empty($errors) ) {
-            $res = $this->prepareShipmentResponse( $res, [], $filterRates=false );
+            $res = $this->prepareShipmentResponse( $res, [], $filterRates );
         }
 
         return $errors ? $errors : $res;
