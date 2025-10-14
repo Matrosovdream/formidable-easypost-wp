@@ -137,43 +137,41 @@ class FrmEasypostEntryHelper {
 
     public function voidShipments() {
 
-        $settings = (new FrmEasypostSettingsHelper())->getVoidShipment();
-        $shipmentHelper = new FrmEasypostShipmentHelper();
-
-        if( empty( $settings['void_after_days'] ) || $settings['void_after_days'] <= 0 ) {
+        $settings       = (new FrmEasypostSettingsHelper())->getVoidShipment();
+        $shipmentHelper = new FrmEasypostShipmentHelper(); // kept if you need it elsewhere
+    
+        if ( empty($settings['void_after_days']) || $settings['void_after_days'] <= 0 ) {
             return;
-        }   
-        
-
+        }
+    
         $shipmentModel = new FrmEasypostShipmentModel();
         $shipments = $shipmentModel->getList(
             [
-                'status'  => $settings['void_statuses'],
-                'void_after_days'=> $settings['void_after_days'],
-                'refund_status' => null, // We don't take already refunded shipments
+                'status'          => $settings['void_statuses'],
+                'void_after_days' => $settings['void_after_days'],
+                'refund_status'   => null, // skip already-refunded
             ],
             ['limit' => 10000]
         );
-
-        //$shipments = array_slice($shipments, 0, 3); 
-
-        $result = [];
-        foreach( $shipments as $shipment ) {
-            //$result[] = $shipmentHelper->voidShipment( $shipment['easypost_id'] );
+    
+        // Space out events to avoid a thundering herd (default 5s; filterable)
+        $spacing = (int) apply_filters('frm_void_single_shipment_spacing_seconds', 5);
+        $when    = time() + 3; // start 10s from now to be safe
+    
+        foreach ($shipments as $i => $shipment) {
+            if (empty($shipment['easypost_id'])) {
+                continue;
+            }
+    
+            $easypost_id = (string) $shipment['easypost_id'];
+            $tracking_code = (string) ($shipment['tracking_code'] ?? '');
+            $ts = $when + ($i * max(1, $spacing));
+    
+            // Avoid duplicates if already queued with same args
+            if ( ! wp_next_scheduled('frm_void_single_shipment', [$easypost_id, $tracking_code]) ) {
+                wp_schedule_single_event($ts, 'frm_void_single_shipment', [$easypost_id, $tracking_code]);
+            }
         }
-
-        echo '<pre>';
-        print_r($settings);
-        echo '</pre>';
-
-        echo "<pre>";
-        print_r($result);
-        echo "</pre>";
-
-        echo '<pre>';
-        print_r($shipments);
-        echo '</pre>';
-            
 
     }
 
