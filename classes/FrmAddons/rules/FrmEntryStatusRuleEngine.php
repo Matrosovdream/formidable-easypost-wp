@@ -26,7 +26,6 @@ final class FrmEntryPrevTimestampCapture
 
         // Optional cleanup after update (not strictly required, but tidy)
         //add_action('frm_after_update_entry', [__CLASS__, 'cleanup_after_update'], 99, 2);
-
     }
 
     /**
@@ -180,6 +179,10 @@ final class FrmEntryStatusRuleEngine
 
             if ($this->evaluateAll($allConditions, $metas)) {
                 $this->upsertMeta($entry_id, $statusField, $setStatusTo);
+
+                // Update entry 'updated_at' timestamp
+                $this->helper->updateEntryFresh( $entry_id );
+
             }
         }
     }
