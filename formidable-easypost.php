@@ -25,14 +25,14 @@ function FrmEasypostInit() {
     
     if( isset( $_GET['logg'] ) ) {
 
-        //voidShipments();
+        voidShipments();
         //saveEntryPdf();
         //streamOriginEntryPdf();
         //saveEntryPdf();
         //ApplyFormExtension();
         //voidShipment();
         //verifyAddressSmarty();
-        createLabel();
+        //createLabel();
         //getShipments();
         //getPredefinedPackages();
         //verifyAddress();
@@ -151,7 +151,8 @@ function getCarrierAccounts() {
 }
 
 function createLabel() {
-    $carrierHelper   = new FrmEasypostCarrierHelper();
+
+    $carrierHelper = new FrmEasypostCarrierHelper();
     $carrierAccounts = $carrierHelper->getCarrierAccounts();
 
     $addresses = [
@@ -174,83 +175,44 @@ function createLabel() {
         ],
     ];
 
-    $rates     = [];
-    $shipments = [];
-
-    foreach ($carrierAccounts as $key => $account) {
+    $rates = [];
+    foreach( $carrierAccounts as $account ) {
+        
         $labelData = [
-            "from_address"     => $addresses['from_address'],
-            "to_address"       => $addresses['to_address'],
-            "parcel"           => [
-                "weight"             => 5,
-                "width"              => 9.5,
-                "height"             => 2,
-                "length"             => 12.5,
-                "predefined_package" => $account['packages'][0] ?? null,
+            "from_address" => $addresses['from_address'],
+            "to_address"   => $addresses['to_address'],
+            "parcel" => [
+                "weight" => 1.0,
+                //"predefined_package" => $account['packages'][0],
             ],
-            "carrier_accounts" => [ $account['id'] ],
-            'order_id'         => 2,
-            'reference'        => 'Order #2',
+            //"carrier_accounts" => [$account['id']],
+            'order_id' => 2,
+            'reference' => 'Order #2',
         ];
 
-        // Special case from your example
-        if ($key === 2) {
-            //$labelData['parcel']['predefined_package'] = 'FedExEnvelope';
-        }
-
         $shipmentApi = new FrmEasypostShipmentApi();
-        $shipment    = $shipmentApi->createShipment($labelData, false);
+        $shipment = $shipmentApi->createShipment($labelData);
 
-        // Attach some extra context for comparison
-        $shipment['parcel']           = $labelData['parcel'];
-        $shipment['carrier_accounts'] = $labelData['carrier_accounts'];
+        if( isset( $shipment['rates'] ) ) {
 
-        $shipments[] = $shipment;
+            foreach( $shipment['rates'] as $rate ) {
 
-        if (isset($shipment['rates'])) {
-            foreach ($shipment['rates'] as $rate) {
-                $rate['shipment_id'] = $shipment['general']['id'] ?? null;
-                $rate['package']     = $account['packages'][0] ?? null;
+                $rate['shipment_id'] = $shipment['general']['id'];
+                $rate['package'] = $account['packages'][0];
                 $rates[] = $rate;
             }
+
         }
+
     }
 
-    render_shipments_compare( $shipments );
+    //$boughtShipment = $shipmentApi->buyLabel($shipment->id, $shipment->lowestRate());
 
-    return $shipments;
+    echo '<pre>';
+    print_r($shipment);
+    echo '</pre>';
+
 }
-
-/**
- * 2) Helper to render shipments in 3 columns with <pre> print_r output
- */
-function render_shipments_compare(array $shipments): void {
-    // Normalize to exactly 3 cells (pad with nulls if fewer)
-    $cells = array_slice(array_pad($shipments, 3, null), 0, 3);
-
-    echo '<style>
-        .compare-table { width:100%; border-collapse:collapse; table-layout:fixed; }
-        .compare-table td { vertical-align:top; border:1px solid #ddd; padding:8px; width:33.333%; }
-        .compare-table pre { margin:0; white-space:pre-wrap; word-wrap:break-word; font-size:12px; }
-        .compare-table .header { font-weight:600; margin-bottom:6px; display:block; }
-    </style>';
-
-    echo '<table class="compare-table"><tr>';
-    foreach ($cells as $i => $item) {
-        echo '<td>';
-        echo '<span class="header">Shipment ' . ($i + 1) . '</span>';
-        if ($item === null) {
-            echo '<em>No data</em>';
-        } else {
-            // Capture print_r output and safely display it
-            $dump = print_r($item, true);
-            echo '<pre>' . htmlspecialchars($dump, ENT_QUOTES, 'UTF-8') . '</pre>';
-        }
-        echo '</td>';
-    }
-    echo '</tr></table>';
-}
-
 
 function getEntryAddresses() {
 
