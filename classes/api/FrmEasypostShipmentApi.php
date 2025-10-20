@@ -2,7 +2,7 @@
 
 class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
-    public function createShipment( array $data, bool $filterRates=true ): array {
+    public function createShipment( array $data ): array {
 
         // 🔌 Allow plugins/themes to modify the payload BEFORE creating the shipment
         // Filter name: frm_easypost_shipment_pre_create_data
@@ -16,7 +16,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
         $errors = $this->handleErrors($res);
 
         if( empty($errors) ) {
-            $res = $this->prepareShipmentResponse( $res, [], $filterRates );
+            $res = $this->prepareShipmentResponse( $res );
         }
 
         return $errors ? $errors : $res;
@@ -169,7 +169,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     }
 
-    private function prepareShipmentResponse( EasyPost\Shipment $res, array $attachObjects=[], bool $filterRates=true ): array {
+    private function prepareShipmentResponse( EasyPost\Shipment $res, array $attachObjects=[] ): array {
 
         // General
         $general = [
@@ -311,9 +311,7 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
             }   
 
-            if( $filterRates ) {
-                $rates = $this->filterRates($rates);
-            }
+            $rates = $this->filterRates($rates);
 
         }
 
