@@ -21,6 +21,8 @@ class FrmEasypostEntryHelper {
     }
 
     public function getEntryMetas( int $entry_id ) {
+
+        FrmEntry::clear_cache();
         
         $entry = \FrmEntry::getOne($entry_id, true);
         if (!$entry) {
@@ -30,6 +32,25 @@ class FrmEasypostEntryHelper {
         return is_array($entry->metas ?? null) ? $entry->metas : [];
 
     }
+
+    public function updateEntryFresh( int $entry_id ): bool {
+        global $wpdb;
+        $table = $wpdb->prefix . 'frm_items'; // Formidable entries table
+        $now   = current_time( 'mysql', true );
+    
+        $res = (bool) $wpdb->update(
+            $table,
+            [ 'updated_at' => $now ],
+            [ 'id' => $entry_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
+
+        FrmEntry::clear_cache();
+
+        return $res;
+
+    }    
 
     protected function getEntryAddressFields( int $entry_id ) {
         
