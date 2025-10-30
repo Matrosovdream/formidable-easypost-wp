@@ -139,18 +139,20 @@ final class FrmEntryStatusRuleEngine
         $this->helper = $helper ?: new FrmEasypostEntryHelper();
     }
 
-    public function applyMappings(int $entry_id, array $mappings): void
+    public function applyMappings(int $entry_id, array $mappings)
     {
         if (!$entry_id) { return; }
+
+        \FrmEntry::clear_cache( $entry_id );
 
         $entry = \FrmEntry::getOne($entry_id, true);
         if (!$entry) { return; }
 
         $formId = (int) ($entry->form_id ?? 0);
-        $metas  = $this->helper->getEntryMetas($entry_id);
-        if (!is_array($metas)) { $metas = []; }
+        $metas  = is_array($entry->metas ?? null) ? $entry->metas : [];
 
-        foreach ($mappings as $map) {
+        $appliedMappings = [];
+        foreach ($mappings as $key => $map) {
             $statusField   = (int)($map['status_field'] ?? 0);
             $setStatusTo   = $map['set_status_to'] ?? null;
             $whenStatusIs  = $map['when_status_is'] ?? null;
@@ -167,8 +169,13 @@ final class FrmEntryStatusRuleEngine
 
             $currentStatusRaw = $metas[$statusField] ?? '';
 
-            // Precondition: current status is in the allowed list (OR)
+            // Precondition: current status must match allowed list (OR)
             if (!$this->statusPreconditionMatches($currentStatusRaw, $whenStatusIs)) {
+                continue;
+            }
+
+            // skip if it's already the desired status (no-op)
+            if ($this->statusAlreadyEquals($entry_id, $statusField, $setStatusTo)) {
                 continue;
             }
 
@@ -177,14 +184,25 @@ final class FrmEntryStatusRuleEngine
                 continue;
             }
 
+            // Conditions tree
             if ($this->evaluateAll($allConditions, $metas)) {
                 $this->upsertMeta($entry_id, $statusField, $setStatusTo);
+                $appliedMappings[] = $key;
 
-                // Update entry 'updated_at' timestamp
-                $this->helper->updateEntryFresh( $entry_id );
-
+                // Touch updated_at
+                $this->helper->updateEntryFresh($entry_id);
             }
         }
+
+        return $appliedMappings;
+    }
+
+    private function statusAlreadyEquals(int $entry_id, int $statusField, $setStatusTo): bool
+    {
+        
+        $current_status = FrmEntryMeta::get_entry_meta_by_field( $entry_id, $statusField, true );
+        return ( (string)$current_status === (string)$setStatusTo );
+
     }
 
     private function statusPreconditionMatches($currentStatusRaw, $whenStatusIs): bool
