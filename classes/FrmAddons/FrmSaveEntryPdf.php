@@ -97,9 +97,9 @@ class FrmSaveEntryPdf {
      * Stream an already-saved PDF from /wp-content/formidable-pdfs/{id}.pdf.
      */
     public function streamOriginEntryPdf( int $entry_id, bool $force_download = false, bool $create = false ): void {
-        if ( ! is_user_logged_in() || ! current_user_can('manage_options') ) {
-            $this->fatal('Unauthorized', 403);
-        }
+        
+        // Verify rights
+        $this->verifyReadRights( $entry_id );
 
         $path = trailingslashit($this->saveDir) . $entry_id . '.pdf';
         if ( ! file_exists($path) ) {
@@ -116,6 +116,23 @@ class FrmSaveEntryPdf {
         $this->sendPdfHeaders($entry_id . '.pdf', filesize($path), $force_download);
         $this->streamFile($path);
     }
+
+    private function verifyReadRights( $entry_id=null ) {
+
+        // Allow admin and custom roles admin2, admin3
+        if ( ! is_user_logged_in() ) {
+            $this->fatal('Unauthorized', 403);
+        }
+
+        $user = wp_get_current_user();
+        $allowed_roles = ['administrator', 'admin2', 'admin3'];
+
+        // Check if the user has at least one allowed role
+        if ( ! array_intersect( $allowed_roles, (array) $user->roles ) ) {
+            $this->fatal('Unauthorized', 403);
+        }
+
+    } 
 
     /* ===========================
      *         Helpers
