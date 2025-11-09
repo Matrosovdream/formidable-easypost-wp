@@ -143,6 +143,13 @@ final class FrmSmartyApi
         $first = $list[0] ?? null;
         [$status, $deliverable] = $this->inferUsStatus($first);
 
+        /*
+        echo "<pre>";
+        print_r($resp);
+        echo "</pre>";
+        die();
+        */
+
         $normalized = $first ? [
             'delivery_line_1' => $first['delivery_line_1'] ?? null,
             'delivery_line_2' => $first['delivery_line_2'] ?? null,
@@ -152,6 +159,26 @@ final class FrmSmartyApi
             'analysis'        => $first['analysis'] ?? null,
             'deliverable'     => $deliverable,
         ] : null;
+
+        // Full address
+        if( $normalized ) {
+
+            $normalized['full_address'] = 
+                trim(
+                    ($normalized['delivery_line_1'] ?? '') . ', ' .
+                    ($normalized['last_line'] ?? '')
+                );
+
+            $normalized['components']['full_zipcode'] = 
+                trim(
+                    ($normalized['components']['zipcode'] ?? '') . 
+                    (isset($normalized['components']['plus4_code']) && $normalized['components']['plus4_code'] !== '' 
+                        ? '-' . $normalized['components']['plus4_code'] 
+                        : ''
+                    )
+                );
+        }
+        
 
         return [
             'ok'         => true,
