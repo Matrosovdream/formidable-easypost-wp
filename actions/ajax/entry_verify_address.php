@@ -4,7 +4,7 @@
 add_action('wp_ajax_entry_verify_address', 'ep_ajax_entry_verify_address');
 add_action('wp_ajax_nopriv_entry_verify_address', 'ep_ajax_entry_verify_address');
 function ep_ajax_entry_verify_address() {
-    check_ajax_referer('ep_entry_verify_nonce');
+    //check_ajax_referer('ep_entry_verify_nonce');
 
     $raw = wp_unslash($_POST['address'] ?? '');
     $decoded = json_decode($raw, true);
