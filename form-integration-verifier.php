@@ -189,7 +189,7 @@ add_action( 'frm_display_form_action', function ( $form ) {
                         if (map.street1) setFieldValue(map.street1, n.delivery_line_1 || '');
                         if (map.city)    setFieldValue(map.city,    (c.default_city_name || n.default_city_name || ''));
                         if (map.state)   setFieldValue(map.state,   (c.state_abbreviation || n.state_abbreviation || ''));
-                        if (map.zipcode) setFieldValue(map.zipcode, (n.full_zipcode || '')); // <-- use full_zipcode
+                        if (map.zipcode) setFieldValue(map.zipcode, (c.full_zipcode || '')); // <-- use full_zipcode
                     }
 
                     closeModal();
