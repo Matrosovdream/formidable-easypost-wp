@@ -219,8 +219,9 @@ class FrmEasypostInit {
         // Save entry PDF class
         require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/FrmSaveEntryPdf.php';
 
-        // Verify Address Forms Admin
+        // Verify Address Forms
         require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/AddressVerificationForms/FrmAddressVerificationFormsAdmin.php';
+        require_once FRM_EAP_BASE_URL.'/classes/FrmAddons/AddressVerificationForms/FrmAddressVerificationForms.php';
 
     }
 
