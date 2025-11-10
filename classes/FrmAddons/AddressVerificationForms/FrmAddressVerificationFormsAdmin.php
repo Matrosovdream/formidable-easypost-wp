@@ -139,6 +139,7 @@ final class FrmAddressVerificationFormsAdmin {
                 .frm-easypost-settings .muted {color:#666;margin-top:6px}
                 .frm-easypost-table {width:100%;border-collapse:collapse}
                 .frm-easypost-table th, .frm-easypost-table td {border:1px solid #e0e0e0;padding:8px;background:#fff;vertical-align:top}
+                .frm-easypost-table input[type="number"] { width: 100px; }
                 .frm-easypost-table th {background:#f6f7f7;text-align:left}
                 .frm-easypost-actions {margin-top:8px}
                 .regular-text.full { width:100%; }
@@ -155,7 +156,7 @@ final class FrmAddressVerificationFormsAdmin {
                 <div class="card">
                     <h2 style="margin-top:0;"><?php esc_html_e( 'Provider', 'frm-easypost' ); ?></h2>
                     <p class="muted">
-                        <?php echo esc_html__( 'Formidable forms address verification • Inject into any form • Allow to choose verified address', 'frm-easypost' ); ?>
+                        <?php echo esc_html__( 'Formidable forms address verification • Inject into any form • Allows to choose verified address', 'frm-easypost' ); ?>
                     </p>
 
                     <p>
@@ -172,13 +173,13 @@ final class FrmAddressVerificationFormsAdmin {
                     <table class="frm-easypost-table" id="frm-addrv-table">
                         <thead>
                             <tr>
-                                <th style="width:24%"><?php esc_html_e('Form', 'frm-easypost'); ?></th>
-                                <th style="width:10%"><?php esc_html_e('Page #', 'frm-easypost'); ?></th>
-                                <th style="width:12%"><?php esc_html_e('Street 1 (field_id)', 'frm-easypost'); ?></th>
-                                <th style="width:12%"><?php esc_html_e('City (field_id)', 'frm-easypost'); ?></th>
-                                <th style="width:12%"><?php esc_html_e('State (field_id)', 'frm-easypost'); ?></th>
-                                <th style="width:12%"><?php esc_html_e('Zip code (field_id)', 'frm-easypost'); ?></th>
-                                <th style="width:10%"><?php esc_html_e('Test mode (Admin)', 'frm-easypost'); ?></th><!-- NEW -->
+                                <th style="width:25%"><?php esc_html_e('Form', 'frm-easypost'); ?></th>
+                                <th style="width:5%"><?php esc_html_e('Page #', 'frm-easypost'); ?></th>
+                                <th style="width:5%"><?php esc_html_e('Street 1', 'frm-easypost'); ?></th>
+                                <th style="width:5%"><?php esc_html_e('City', 'frm-easypost'); ?></th>
+                                <th style="width:5%"><?php esc_html_e('State', 'frm-easypost'); ?></th>
+                                <th style="width:5%"><?php esc_html_e('Zip code', 'frm-easypost'); ?></th>
+                                <th style="width:5%"><?php esc_html_e('Test mode (Admin)', 'frm-easypost'); ?></th><!-- NEW -->
                                 <th style="width:6%"><?php esc_html_e('Actions', 'frm-easypost'); ?></th>
                             </tr>
                         </thead>
@@ -290,7 +291,6 @@ final class FrmAddressVerificationFormsAdmin {
             <td style="text-align:center;">
                 <label>
                     <input type="checkbox" name="<?php echo $base; ?>[test_mode]" value="1" <?php checked( $test_mode, 1 ); ?> />
-                    <?php esc_html_e('Admin', 'frm-easypost'); ?>
                 </label>
             </td>
             <td><button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button></td>
