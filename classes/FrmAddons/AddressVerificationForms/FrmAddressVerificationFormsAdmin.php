@@ -17,10 +17,7 @@ final class FrmAddressVerificationFormsAdmin {
 
     public static function init(): void {
         add_action('admin_menu', [__CLASS__, 'register_menu'], 30);
-        // keep register_setting so WP knows about the option (tools/import/export, etc.)
         add_action('admin_init', [__CLASS__, 'register_setting']);
-
-        // custom save handler (admin-post)
         add_action('admin_post_frm_addrv_save', [__CLASS__, 'handle_save']);
     }
 
@@ -69,17 +66,27 @@ final class FrmAddressVerificationFormsAdmin {
         // rows
         if ( isset($input['rows']) && is_array($input['rows']) ) {
             foreach ( $input['rows'] as $row ) {
-                $form_id   = isset($row['form_id']) ? (int) $row['form_id'] : 0;
-                $page      = isset($row['page']) ? (int) $row['page'] : 0;
-                $street1   = isset($row['street1']) ? (int) $row['street1'] : 0;
-                $city      = isset($row['city']) ? (int) $row['city'] : 0;
-                $state     = isset($row['state']) ? (int) $row['state'] : 0;
-                $zipcode   = isset($row['zipcode']) ? (int) $row['zipcode'] : 0;
-                $test_mode = ! empty($row['test_mode']) ? 1 : 0; // NEW
+                $form_id   = isset($row['form_id'])   ? (int) $row['form_id']   : 0;
+                $page      = isset($row['page'])      ? (int) $row['page']      : 0;
+                $street1   = isset($row['street1'])   ? (int) $row['street1']   : 0;
+                $street2   = isset($row['street2'])   ? (int) $row['street2']   : 0; // NEW
+                $city      = isset($row['city'])      ? (int) $row['city']      : 0;
+                $state     = isset($row['state'])     ? (int) $row['state']     : 0;
+                $zipcode   = isset($row['zipcode'])   ? (int) $row['zipcode']   : 0;
+                $test_mode = ! empty($row['test_mode']) ? 1 : 0;
 
                 // keep only mappings that target a real form
                 if ( $form_id > 0 ) {
-                    $out['rows'][] = compact('form_id','page','street1','city','state','zipcode','test_mode');
+                    $out['rows'][] = [
+                        'form_id'   => $form_id,
+                        'page'      => $page,
+                        'street1'   => $street1,
+                        'street2'   => $street2, // NEW
+                        'city'      => $city,
+                        'state'     => $state,
+                        'zipcode'   => $zipcode,
+                        'test_mode' => $test_mode,
+                    ];
                 }
             }
         }
@@ -106,8 +113,8 @@ final class FrmAddressVerificationFormsAdmin {
         // redirect back with success flag
         $url = add_query_arg(
             [
-                'page'               => self::PAGE_SLUG,
-                'settings-updated'   => '1',
+                'page'             => self::PAGE_SLUG,
+                'settings-updated' => '1',
             ],
             admin_url('admin.php')
         );
@@ -156,7 +163,7 @@ final class FrmAddressVerificationFormsAdmin {
                 <div class="card">
                     <h2 style="margin-top:0;"><?php esc_html_e( 'Provider', 'frm-easypost' ); ?></h2>
                     <p class="muted">
-                        <?php echo esc_html__( 'Formidable forms address verification • Inject into any form • Allows to choose verified address', 'frm-easypost' ); ?>
+                        <?php echo esc_html__( 'Formidable forms address verification • Inject into any form • Allows to choose verified address. Address fields are stored as field_id values.', 'frm-easypost' ); ?>
                     </p>
 
                     <p>
@@ -173,13 +180,14 @@ final class FrmAddressVerificationFormsAdmin {
                     <table class="frm-easypost-table" id="frm-addrv-table">
                         <thead>
                             <tr>
-                                <th style="width:25%"><?php esc_html_e('Form', 'frm-easypost'); ?></th>
-                                <th style="width:5%"><?php esc_html_e('Page #', 'frm-easypost'); ?></th>
-                                <th style="width:5%"><?php esc_html_e('Street 1', 'frm-easypost'); ?></th>
-                                <th style="width:5%"><?php esc_html_e('City', 'frm-easypost'); ?></th>
-                                <th style="width:5%"><?php esc_html_e('State', 'frm-easypost'); ?></th>
-                                <th style="width:5%"><?php esc_html_e('Zip code', 'frm-easypost'); ?></th>
-                                <th style="width:5%"><?php esc_html_e('Test mode (Admin)', 'frm-easypost'); ?></th><!-- NEW -->
+                                <th style="width:22%"><?php esc_html_e('Form', 'frm-easypost'); ?></th>
+                                <th style="width:6%"><?php esc_html_e('Page #', 'frm-easypost'); ?></th>
+                                <th style="width:7%"><?php esc_html_e('Street 1', 'frm-easypost'); ?></th>
+                                <th style="width:7%"><?php esc_html_e('Street 2', 'frm-easypost'); ?></th><!-- NEW -->
+                                <th style="width:7%"><?php esc_html_e('City', 'frm-easypost'); ?></th>
+                                <th style="width:7%"><?php esc_html_e('State', 'frm-easypost'); ?></th>
+                                <th style="width:7%"><?php esc_html_e('Zip code', 'frm-easypost'); ?></th>
+                                <th style="width:7%"><?php esc_html_e('Test mode (Admin)', 'frm-easypost'); ?></th>
                                 <th style="width:6%"><?php esc_html_e('Actions', 'frm-easypost'); ?></th>
                             </tr>
                         </thead>
@@ -187,7 +195,7 @@ final class FrmAddressVerificationFormsAdmin {
                         <?php
                         $rows = isset($opt['rows']) && is_array($opt['rows']) ? $opt['rows'] : [];
                         if ( empty($rows) ) {
-                            $rows = [ [ 'form_id'=>0, 'page'=>0, 'street1'=>0, 'city'=>0, 'state'=>0, 'zipcode'=>0, 'test_mode'=>0 ] ];
+                            $rows = [ [ 'form_id'=>0, 'page'=>0, 'street1'=>0, 'street2'=>0, 'city'=>0, 'state'=>0, 'zipcode'=>0, 'test_mode'=>0 ] ];
                         }
                         foreach ( $rows as $i => $row ) :
                             self::render_row($i, $row, $forms);
@@ -200,7 +208,7 @@ final class FrmAddressVerificationFormsAdmin {
                     </div>
 
                     <template id="frm-addrv-row-template">
-                        <?php self::render_row('__IDX__', [ 'form_id'=>0, 'page'=>0, 'street1'=>0, 'city'=>0, 'state'=>0, 'zipcode'=>0, 'test_mode'=>0 ], $forms, true ); ?>
+                        <?php self::render_row('__IDX__', [ 'form_id'=>0, 'page'=>0, 'street1'=>0, 'street2'=>0, 'city'=>0, 'state'=>0, 'zipcode'=>0, 'test_mode'=>0 ], $forms, true ); ?>
                     </template>
                 </div>
 
@@ -261,12 +269,13 @@ final class FrmAddressVerificationFormsAdmin {
         <?php
     }
 
-    /** Render a single mapping row (includes new Test mode checkbox) */
+    /** Render a single mapping row (now includes Street 2) */
     private static function render_row( $idx, $row, $forms, $is_template = false ): void {
         $base = esc_attr(self::OPTION_KEY) . "[rows][$idx]";
         $form_id   = isset($row['form_id'])   ? (int)$row['form_id']   : 0;
         $page      = isset($row['page'])      ? (int)$row['page']      : 0;
         $street1   = isset($row['street1'])   ? (int)$row['street1']   : 0;
+        $street2   = isset($row['street2'])   ? (int)$row['street2']   : 0; // NEW
         $city      = isset($row['city'])      ? (int)$row['city']      : 0;
         $state     = isset($row['state'])     ? (int)$row['state']     : 0;
         $zipcode   = isset($row['zipcode'])   ? (int)$row['zipcode']   : 0;
@@ -285,6 +294,7 @@ final class FrmAddressVerificationFormsAdmin {
             </td>
             <td><input type="number" name="<?php echo $base; ?>[page]"    value="<?php echo esc_attr($page ?: ''); ?>"    placeholder="1" /></td>
             <td><input type="number" name="<?php echo $base; ?>[street1]" value="<?php echo esc_attr($street1 ?: ''); ?>" placeholder="field_id" /></td>
+            <td><input type="number" name="<?php echo $base; ?>[street2]" value="<?php echo esc_attr($street2 ?: ''); ?>" placeholder="field_id" /></td><!-- NEW -->
             <td><input type="number" name="<?php echo $base; ?>[city]"    value="<?php echo esc_attr($city ?: ''); ?>"    placeholder="field_id" /></td>
             <td><input type="number" name="<?php echo $base; ?>[state]"   value="<?php echo esc_attr($state ?: ''); ?>"   placeholder="field_id" /></td>
             <td><input type="number" name="<?php echo $base; ?>[zipcode]" value="<?php echo esc_attr($zipcode ?: ''); ?>" placeholder="field_id" /></td>
