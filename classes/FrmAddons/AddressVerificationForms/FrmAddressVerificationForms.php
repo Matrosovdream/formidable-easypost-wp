@@ -256,8 +256,15 @@ final class FrmAddressVerificationForms {
                                 var normalized = (resp && resp.data && resp.data.normalized) ? resp.data.normalized : null;
 
                                 // Compose display texts and street2 just for view
-                                var normalizedText      = composeLineFromNormalized(normalized) + ', ' + street2;
-                                var originalTextDisplay = composeLineFromOriginal(fields) + ', ' + street2;
+                                var normalizedText      = composeLineFromNormalized(normalized);
+                                var originalTextDisplay = composeLineFromOriginal(fields);
+
+                                if( street2 != '' ) {
+                                    if (normalizedText) {
+                                        normalizedText += ', ' + street2;
+                                    }
+                                    originalTextDisplay += ', ' + street2;
+                                }
 
                                 lastResult = {
                                     success: okFlag,
