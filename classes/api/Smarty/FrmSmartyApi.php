@@ -143,13 +143,6 @@ final class FrmSmartyApi
         $first = $list[0] ?? null;
         [$status, $deliverable] = $this->inferUsStatus($first);
 
-        /*
-        echo "<pre>";
-        print_r($resp);
-        echo "</pre>";
-        die();
-        */
-
         $normalized = $first ? [
             'delivery_line_1' => $first['delivery_line_1'] ?? null,
             'delivery_line_2' => $first['delivery_line_2'] ?? null,
