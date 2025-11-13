@@ -5,16 +5,17 @@ if ( ! defined('ABSPATH') ) { exit; }
  * Injects front-end address verification UI for Formidable Forms
  * based on admin mappings from the "Address verifier" page.
  *
- * - Reads option: frm_address_verification_forms (rows: form_id, page, street1, street2, city, state, zipcode, test_mode)
- * - Outputs a modal + jQuery logic
+ * - Reads option: frm_address_verification_forms (rows: form_id, page, street1, city, state, zipcode, test_mode)
+ * - Outputs the same modal + jQuery logic you already use
  * - Builds JS var ADDRESSES from the option for the current form only
  */
 final class FrmAddressVerificationForms {
 
-    private const OPTION_KEY  = 'frm_address_verification_forms';
+    private const OPTION_KEY = 'frm_address_verification_forms';
     private const AJAX_ACTION = 'entry_verify_address'; // your existing AJAX handler name
 
     public static function init(): void {
+        // Hook per-form render
         add_action( 'frm_display_form_action', [ __CLASS__, 'maybe_inject_for_form' ], 10, 1 );
     }
 
@@ -30,13 +31,19 @@ final class FrmAddressVerificationForms {
 
         // Build page=>fields mapping for this form from saved settings
         $addresses = self::get_addresses_mapping_for_form( $form_id );
+
         if ( empty( $addresses ) ) {
-            return; // No mapping configured for this form
+            // No mapping configured for this form; nothing to inject
+            return;
         }
 
+        // Defer printing until footer (same as your original code)
         add_action( 'wp_footer', function () use ( $addresses ) {
+
             $ajax_url  = admin_url( 'admin-ajax.php' );
             $ajaxNonce = wp_create_nonce( 'ep_entry_verify_nonce' );
+
+            // Wrap the same CSS/HTML/JS you had, but inject $addresses JSON
             ?>
             <style>
                 .epv-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; z-index: 99998; }
@@ -78,7 +85,8 @@ final class FrmAddressVerificationForms {
                     var $lastNextBtn  = null;
                     var lastResult    = null;
 
-                    // Injected from PHP: { [pageNum]: { fields: {street1, street2, city, state, zipcode} } }
+                    // Dynamically injected from settings for THIS form:
+                    // { [pageNum]: { fields: {street1:ID, city:ID, state:ID, zipcode:ID} } }
                     var ADDRESSES = <?php echo wp_json_encode( $addresses ); ?>;
 
                     /** Detect the current visible page number (class .frm_page_num_X and visible) */
@@ -122,29 +130,24 @@ final class FrmAddressVerificationForms {
 
                     function composeLineFromOriginal(addr) {
                         var a = addr || {};
-                        var firstLine = [];
-                        if (a.street1) firstLine.push(a.street1);
-                        //if (a.street2) firstLine.push(a.street2); // display-only
                         var parts = [];
-                        if (firstLine.length) parts.push(firstLine.join(', '));
-
+                        if (a.street1) parts.push(a.street1);
                         var cityStateZip = [];
-                        if (a.city)  cityStateZip.push(a.city);
+                        if (a.city) cityStateZip.push(a.city);
                         if (a.state) cityStateZip.push(a.state);
                         if (a.zipcode) cityStateZip.push(a.zipcode);
                         if (cityStateZip.length) parts.push(cityStateZip.join(' '));
-
                         return parts.join(', ');
                     }
 
                     function composeLineFromNormalized(n) {
                         if (!n) return '';
-                        // Prefer delivery_line_1 + delivery_line_2 + last_line
-                        var segs = [];
-                        if (n.delivery_line_1) segs.push(n.delivery_line_1);
-                        if (n.delivery_line_2) segs.push(n.delivery_line_2);
-                        if (n.last_line)       segs.push(n.last_line);
-                        if (segs.length) return segs.join(', ');
+                        if (n.delivery_line_1 || n.last_line) {
+                            var segs = [];
+                            if (n.delivery_line_1) segs.push(n.delivery_line_1);
+                            if (n.last_line) segs.push(n.last_line);
+                            return segs.join(', ');
+                        }
                         if (n.full_address) return String(n.full_address);
                         return '';
                     }
@@ -214,11 +217,11 @@ final class FrmAddressVerificationForms {
                         if (choice === 'normalized' && lastResult && lastResult.normalized && lastResult.fieldsMap) {
                             var n   = lastResult.normalized;
                             var map = lastResult.fieldsMap;
-                            var c   = (n && n.components) ? n.components : {};
+
+                            var c = (n && n.components) ? n.components : {};
 
                             // Write normalized → form fields
                             if (map.street1) setFieldValue(map.street1, n.delivery_line_1 || '');
-                            // NOTE: street2 is display-only; DO NOT write it back
                             if (map.city)    setFieldValue(map.city,    (c.default_city_name || n.default_city_name || ''));
                             if (map.state)   setFieldValue(map.state,   (c.state_abbreviation || n.state_abbreviation || ''));
                             if (map.zipcode) setFieldValue(map.zipcode, (c.full_zipcode || '')); // use full_zipcode
@@ -237,17 +240,10 @@ final class FrmAddressVerificationForms {
                         var originalText  = $btn.text();
                         $btn.prop('disabled', true).attr('title', 'Verifying address...').text('Verifying address...');
 
-                        // IMPORTANT: do not send street2 to API (display-only)
-                        var fieldsForApi = $.extend({}, fields);
-                        if ('street2' in fieldsForApi) { 
-                            var street2 = fields.street2 || '';
-                            delete fieldsForApi.street2; 
-                        }
-
                         return $.post(ajaxUrl, {
                             action: <?php echo wp_json_encode( self::AJAX_ACTION ); ?>,
                             _ajax_nonce: ajaxNonce,
-                            address: JSON.stringify(fieldsForApi),
+                            address: JSON.stringify(fields),
                             strict: 1
                         })
                         .done(function(resp){
@@ -255,9 +251,8 @@ final class FrmAddressVerificationForms {
                                 var okFlag     = !!(resp && resp.success === true);
                                 var normalized = (resp && resp.data && resp.data.normalized) ? resp.data.normalized : null;
 
-                                // Compose display texts and street2 just for view
-                                var normalizedText      = composeLineFromNormalized(normalized) + ', ' + street2;
-                                var originalTextDisplay = composeLineFromOriginal(fields) + ', ' + street2;
+                                var normalizedText      = composeLineFromNormalized(normalized);
+                                var originalTextDisplay = composeLineFromOriginal(fields);
 
                                 lastResult = {
                                     success: okFlag,
@@ -301,27 +296,6 @@ final class FrmAddressVerificationForms {
                         });
                     }
 
-                    /**
-                     * Helper: Are street1 or street2 present & visible?
-                     * Returns true only if at least one mapped street field exists and is :visible.
-                     */
-                    function isAddressVisible(fieldsMap) {
-                        if (!fieldsMap) return false;
-
-                        var ids = [];
-                        if (fieldsMap.street1) ids.push(fieldsMap.street1);
-                        if (fieldsMap.street2) ids.push(fieldsMap.street2);
-
-                        if (!ids.length) return false;
-
-                        for (var i=0; i<ids.length; i++) {
-                            var sel = '[name="item_meta[' + ids[i] + ']"]';
-                            var $el = $(sel);
-                            if ($el.length && $el.is(':visible')) return true;
-                        }
-                        return false;
-                    }
-
                     // Intercept Next/Submit
                     $(document).on('click', '.frm_button_submit', function(e){
                         var currentPage = getCurrentPageNumber();
@@ -332,17 +306,11 @@ final class FrmAddressVerificationForms {
                         }
 
                         if (ADDRESSES[currentPage]) {
-                            var fieldsMap = (ADDRESSES[currentPage] || {}).fields || {};
-
-                            // Only run verification if at least one street field is visible
-                            if (!isAddressVisible(fieldsMap)) {
-                                //return; // don't interfere with other scripts
-                            }
-
                             e.preventDefault();
                             $lastNextBtn = $(this);
+                            var fields    = collectPageValues(currentPage);
+                            var fieldsMap = (ADDRESSES[currentPage] || {}).fields || {};
 
-                            var fields = collectPageValues(currentPage); // includes street2 for display
                             verifyAddressAjax(fields, fieldsMap, $lastNextBtn);
                         }
                     });
@@ -356,7 +324,7 @@ final class FrmAddressVerificationForms {
 
     /**
      * Build the mapping for the current form from saved admin options.
-     * Returns: [ pageNum => [ 'fields' => [ 'street1'=>ID, 'street2'=>ID, 'city'=>ID, 'state'=>ID, 'zipcode'=>ID ] ] ]
+     * Returns: [ pageNum => [ 'fields' => [ 'street1'=>ID, 'city'=>ID, 'state'=>ID, 'zipcode'=>ID ] ] ]
      *
      * - Includes rows where:
      *   - form_id matches the current form
@@ -364,7 +332,7 @@ final class FrmAddressVerificationForms {
      *   - if test_mode==1 then only include for admins (manage_options)
      */
     private static function get_addresses_mapping_for_form( int $form_id ): array {
-        $opt  = get_option( self::OPTION_KEY, [] );
+        $opt = get_option( self::OPTION_KEY, [] );
         $rows = isset( $opt['rows'] ) && is_array( $opt['rows'] ) ? $opt['rows'] : [];
 
         if ( empty( $rows ) ) {
@@ -375,12 +343,12 @@ final class FrmAddressVerificationForms {
         $out = [];
 
         foreach ( $rows as $row ) {
-            $r_form = (int) ( $row['form_id'] ?? 0 );
+            $r_form   = (int) ( $row['form_id'] ?? 0 );
             if ( $r_form !== $form_id ) {
                 continue;
             }
 
-            $page = (int) ( $row['page'] ?? 0 );
+            $page     = (int) ( $row['page'] ?? 0 );
             if ( $page <= 0 ) {
                 continue;
             }
@@ -392,20 +360,18 @@ final class FrmAddressVerificationForms {
             }
 
             $street1 = (int) ( $row['street1'] ?? 0 );
-            $street2 = (int) ( $row['street2'] ?? 0 );
-            $city    = (int) ( $row['city']    ?? 0 );
-            $state   = (int) ( $row['state']   ?? 0 );
+            $city    = (int) ( $row['city'] ?? 0 );
+            $state   = (int) ( $row['state'] ?? 0 );
             $zipcode = (int) ( $row['zipcode'] ?? 0 );
 
-            if ( $street1 <= 0 && $street2 <= 0 && $city <= 0 && $state <= 0 && $zipcode <= 0 ) {
+            if ( $street1 <= 0 && $city <= 0 && $state <= 0 && $zipcode <= 0 ) {
                 continue; // nothing to map
             }
 
-            // Keep structure: {page: { fields: {...} } }
+            // Keep your original JS structure: {page: { fields: {...} } }
             $out[ $page ] = [
                 'fields' => array_filter([
                     'street1' => $street1 ?: null,
-                    'street2' => $street2 ?: null, // display-only; still useful for composing original text
                     'city'    => $city ?: null,
                     'state'   => $state ?: null,
                     'zipcode' => $zipcode ?: null,
@@ -413,6 +379,7 @@ final class FrmAddressVerificationForms {
             ];
         }
 
+        // Ensure numeric keys remain numbers in JSON (ksort by int keys)
         if ( ! empty( $out ) ) {
             ksort( $out, SORT_NUMERIC );
         }
@@ -422,68 +389,3 @@ final class FrmAddressVerificationForms {
 }
 
 FrmAddressVerificationForms::init();
-
-/**
- * Automatically toggle checkbox item_meta[42][]
- * based on whether item_meta[37] contains "PO Box" variants.
- */
-final class FrmPoBoxAutoCheck {
-    public static function init(): void {
-        add_action( 'frm_display_form_action', [ __CLASS__, 'maybe_inject_for_form' ], 10, 1 );
-    }
-
-    public static function maybe_inject_for_form( array $form ): void {
-        // Optional: limit to a specific form ID
-        // $form_id = isset($form['form_id']) ? (int)$form['form_id'] : 0;
-        // if ( $form_id !== 123 ) return;
-
-        add_action( 'wp_footer', [ __CLASS__, 'print_script' ] );
-    }
-
-    public static function print_script(): void {
-        ?>
-        <script>
-        (function($){
-            $(function(){
-
-                var ADDR_SELECTOR = '[name="item_meta[37]"]';
-                var CHECKBOX_SELECTOR = '[name="item_meta[42][]"]';
-                var POBOX_REGEX = /\bP\.?\s*O\.?\s*Box\b/i; // Matches PO Box, P.O Box, P.O. Box (case-insensitive)
-
-                function toggleCheckboxBasedOnAddress() {
-                    var $addr = $(ADDR_SELECTOR);
-                    var $cbs  = $(CHECKBOX_SELECTOR);
-                    if (!$addr.length || !$cbs.length) return;
-
-                    var val = $addr.val() || '';
-                    var match = POBOX_REGEX.test(val);
-
-                    $cbs.each(function(){
-                        var $cb = $(this);
-                        if (match && !this.checked) {
-                            this.checked = true;
-                            $cb.trigger('change');
-                        } else if (!match && this.checked) {
-                            this.checked = false;
-                            $cb.trigger('change');
-                        }
-                    });
-                }
-
-                // Initial check on load
-                toggleCheckboxBasedOnAddress();
-
-                // Re-check on input or change
-                $(document).on('input change blur', ADDR_SELECTOR, toggleCheckboxBasedOnAddress);
-
-                // Handle dynamically loaded fields (Formidable AJAX)
-                $(document).ajaxComplete(toggleCheckboxBasedOnAddress);
-
-            });
-        })(jQuery);
-        </script>
-        <?php
-    }
-}
-
-FrmPoBoxAutoCheck::init();
