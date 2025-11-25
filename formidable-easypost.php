@@ -29,7 +29,8 @@ function FrmEasypostInit() {
     
     if( isset( $_GET['logg'] ) ) {
 
-        voidShipments();
+        lumaShipmentTest();
+        //voidShipments();
         //saveEntryPdf();
         //streamOriginEntryPdf();
         //saveEntryPdf();
@@ -56,6 +57,51 @@ function FrmEasypostInit() {
         die();
 
     }
+
+}
+
+function lumaShipmentTest() {
+
+    $data = [
+        'order_id' => 123456,
+        'to_address' => [
+            'name'    => 'John Doe',
+            'street1' => '123 Main St',
+            'city'    => 'Anytown',
+            'state'   => 'CA',
+            'zip'     => '90210',
+            'country' => 'US',
+            'phone'   => '555-555-5555',
+            'email'   => 'test@gmail.com',
+        ],
+        'from_address' => [
+            'company' => 'EasyPost',
+            'street1' => '11247 Tuxford St Unit B',
+            'street2' => '4th Floor',
+            'city'    => 'Sun Valley',
+            'state'   => 'CA',
+            'zip'     => '91352',
+            'phone'   => '415-456-7890',
+        ],
+        'ruleset_name' => 'required_deliver_by_date',
+        'planned_ship_date' => '2025-12-01',
+        'deliver_by_date' => '2025-12-05',
+        'parcel' => [
+            'length' => 10,
+            'width'  => 5,
+            'height' => 8,
+            'weight' => 2.0,
+        ],
+    ];
+
+    $shipmentApi = new FrmEasypostShipmentApi();
+    $res = $shipmentApi->createShipmentLuma( $data );
+
+    echo '<pre>';
+    print_r($res);
+    echo '</pre>';
+
+    die();
 
 }
 
