@@ -23,6 +23,27 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
     }
 
+    public function createShipmentLuma( array $data ): array {
+
+        // 🔌 Allow plugins/themes to modify the payload BEFORE creating the shipment
+        // Filter name: frm_easypost_shipment_pre_create_data
+        // Params: (array $data, object $instance)
+        $data = apply_filters('frm_easypost_shipment_pre_create_data', $data);
+
+        // Api call
+        $res = $this->client->luma->getPromise($data);
+
+        // Handle errors
+        $errors = $this->handleErrors($res);
+
+        if( empty($errors) ) {
+            $res = $this->prepareShipmentLumaResponse( $res );
+        }
+
+        return $errors ? $errors : $res;
+
+    }
+
     public function buyLabel( string $shipmentId, string $rateId ) {
 
         // Retrieve the rate
@@ -166,6 +187,46 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
         }
 
         return $res;
+
+    }
+
+    private function prepareShipmentLumaResponse( EasyPost\EasyPostObject $res, array $attachObjects=[] ): array {
+
+        $rates = [];
+        if( !empty($res->ai_results) ) {
+            foreach($res->ai_results as $key=>$rate) {
+                $rates[] = [
+                    'carrier' => $rate->carrier,
+                    'meets_ruleset_requirements' => $rate->meets_ruleset_requirements,
+                    'predicted_deliver_by_date' => $rate->predicted_deliver_by_date,
+                    'predicted_deliver_days' => $rate->predicted_deliver_days,
+                    'rate_usd' => $rate->rate_usd,
+                    'service' => $rate->service,
+                ];
+            }   
+        }
+
+        if( !empty($res->matching_rule_idx) ) {
+            $matchingRule = $res->matching_rule_idx;
+        }
+
+        // luma_selected_rate
+        if( !empty($res->luma_selected_rate) ) {
+            $lumaSelectedRate = [
+                'carrier' => $res->luma_selected_rate->carrier,
+                'meets_ruleset_requirements' => $res->luma_selected_rate->meets_ruleset_requirements,
+                'predicted_deliver_by_date' => $res->luma_selected_rate->predicted_deliver_by_date,
+                'predicted_deliver_days' => $res->luma_selected_rate->predicted_deliver_days,
+                'rate_usd' => $res->luma_selected_rate->rate_usd,
+                'service' => $res->luma_selected_rate->service,
+            ];
+        }
+
+        return [
+            'rates' => $rates,
+            'matching_rule' => $matchingRule ?? null,
+            'luma_selected_rate' => $lumaSelectedRate ?? null,
+        ];
 
     }
 
