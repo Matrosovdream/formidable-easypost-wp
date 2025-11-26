@@ -1,41 +1,153 @@
-#ep-ep-modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.5);z-index:9999}
-#ep-ep-modal.show{display:block}
-#ep-ep-dialog{max-width:1250px;margin:6vh auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.25)}
-#ep-ep-header{padding:14px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+/* MODAL WRAPPER */
+#ep-ep-modal{
+  position:fixed;
+  inset:0;
+  display:none;
+  background:rgba(0,0,0,.5);
+  z-index:9999;
+
+  /* allow scrolling when content is taller than viewport */
+  overflow-y:auto;
+  padding:20px;
+}
+#ep-ep-modal.show{
+  /* use flex so dialog stays centered but still scrolls if needed */
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+}
+
+/* DIALOG */
+#ep-ep-dialog{
+  max-width:1250px;
+  width:100%;
+  margin:40px auto;
+  background:#fff;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 10px 40px rgba(0,0,0,.25);
+
+  /* prevent dialog itself from going off-screen */
+  max-height:90vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* HEADER + BODY */
+#ep-ep-header{
+  padding:14px 18px;
+  border-bottom:1px solid #eee;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-shrink:0;
+}
 #ep-ep-title{font-weight:700;margin:0}
 #ep-ep-close{cursor:pointer;border:none;background:transparent;font-size:22px;line-height:1}
-#ep-ep-body{padding:18px}
-#ep-ep-groups{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:900px){#ep-ep-groups{grid-template-columns:1fr}}
-.ep-group{border:1px solid #eee;border-radius:10px;padding:14px}
-.ep-legend-wrap{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px}
+
+/* make the body scrollable inside the dialog */
+#ep-ep-body{
+  padding:18px;
+  overflow-y:auto;
+}
+
+/* GRID */
+#ep-ep-groups{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+@media (max-width:900px){
+  #ep-ep-groups{grid-template-columns:1fr}
+}
+
+/* GROUPS / FIELDS */
+.ep-group{
+  border:1px solid #eee;
+  border-radius:10px;
+  padding:14px;
+}
+.ep-legend-wrap{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  margin-bottom:10px;
+  gap:10px;
+}
 .ep-legend{font-weight:700;margin:0}
 .ep-verify-bar{display:flex;align-items:center;gap:8px}
-.ep-verify-btn{border:0;border-radius:8px;padding:6px 10px;background:#f3f4f6;cursor:pointer}
+.ep-verify-btn{
+  border:0;
+  border-radius:8px;
+  padding:6px 10px;
+  background:#f3f4f6;
+  cursor:pointer;
+}
 .ep-verify-status{font-size:12px}
 .ep-verify-status.ok{color:#0a7a2b}
 .ep-verify-status.err{color:#b00020}
 .ep-normalized{
   display:none;
-  margin-top:8px;font-size:12px;color:#374151;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px
+  margin-top:8px;
+  font-size:12px;
+  color:#374151;
+  background:#f9fafb;
+  border:1px dashed #e5e7eb;
+  border-radius:8px;
+  padding:8px
 }
 .ep-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ep-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .ep-row-1{display:grid;grid-template-columns:1fr;gap:10px}
-.ep-field{display:flex;flex-direction:column;margin-bottom:10px}
-.ep-field label{font-size:12px;color:#555;margin-bottom:4px}
-.ep-field input, .ep-field select, .ep-field textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:8px}
-#ep-ep-actions{display:flex;gap:10px;align-items:center;margin-top:12px}
-.ep-btn{border:0;border-radius:8px;padding:10px 14px;cursor:pointer}
+.ep-field{
+  display:flex;
+  flex-direction:column;
+  margin-bottom:10px;
+}
+.ep-field label{
+  font-size:12px;
+  color:#555;
+  margin-bottom:4px;
+}
+.ep-field input,
+.ep-field select,
+.ep-field textarea{
+  width:100%;
+  padding:8px;
+  border:1px solid #ddd;
+  border-radius:8px;
+}
+
+/* ACTIONS / BUTTONS */
+#ep-ep-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:12px;
+}
+.ep-btn{
+  border:0;
+  border-radius:8px;
+  padding:10px 14px;
+  cursor:pointer;
+}
 .ep-btn-primary{background:#2563eb;color:#fff}
 .ep-btn-secondary{background:#f3f4f6}
 #ep-ep-rates-wrap{margin-top:10px}
 #ep-ep-status{margin-top:10px;font-size:13px}
 #ep-ep-status.ok{color:#0a7a2b}
 #ep-ep-status.err{color:#b00020}
-#ep-ep-buy[disabled]{opacity:.6;cursor:not-allowed;background:#9ca3af!important;color:#fff!important}
+#ep-ep-buy[disabled]{
+  opacity:.6;
+  cursor:not-allowed;
+  background:#9ca3af!important;
+  color:#fff!important;
+}
+
+/* EXTRAS */
 .ep-address-select { font-size: 12px; }
 .post-content { margin-bottom: 300px; }
+
 /* Optional: outline-styled link button */
 .ep-btn-linklike a{
   display:inline-block;
@@ -45,3 +157,39 @@
   text-decoration:none;
 }
 .ep-btn-linklike a:hover{ text-decoration:none; }
+
+/* DATE TAG LINE */
+#ep-date-tags {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+
+  /* allow scroll on small screens instead of wrapping */
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+#ep-date-tags::-webkit-scrollbar {
+  height: 6px;
+}
+#ep-date-tags::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 6px;
+}
+
+/* Each tag */
+.ep-date-tag {
+  white-space: nowrap;
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  flex: 0 0 auto; /* keeps them same size */
+}
+
+.ep-date-tag:hover {
+  background: #e5e7eb;
+}

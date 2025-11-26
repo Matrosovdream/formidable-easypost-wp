@@ -16,10 +16,11 @@ function ep_ajax_easypost_calculate_rates() {
       $user = get_user_by( 'id', $entry->user_id );
     }
     $userEmail = $user->user_email ?? '';
-
+    
     // NEW: pick up label messages from payload
     $labelMsg1 = sanitize_text_field($decoded['label_message1'] ?? '');
     $labelMsg2 = sanitize_text_field($decoded['label_message2'] ?? '');
+    $labelDate = sanitize_text_field($decoded['label_date'] ?? '');
 
     $labelData = [
         'from_address' => [
@@ -51,6 +52,7 @@ function ep_ajax_easypost_calculate_rates() {
         'options'    => [
             'print_custom_1' => $labelMsg1,
             'print_custom_2' => $labelMsg2,
+            'label_date'    => $labelDate,
         ],
     ];
 
@@ -80,6 +82,7 @@ function ep_ajax_easypost_calculate_rates() {
               "options"          => [
                   "print_custom_1" => $labelMsg1,
                   "print_custom_2" => $labelMsg2,
+                  "label_date"    => $labelDate,
               ],
           ];
 

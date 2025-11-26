@@ -41,19 +41,23 @@ function ep_short_easypost_label_popup($atts) {
     $label1 = isset($opts['label_message1']) ? (string)$opts['label_message1'] : '';
     $label2 = isset($opts['label_message2']) ? (string)$opts['label_message2'] : '';
 
+    // Tomorrow for min date, empty by default
+    $tomorrow = '';
+    //$tomorrow = date('Y-m-d', strtotime('+1 day'));
+
     // Register + enqueue (scoped to this render)
     wp_enqueue_style('ep-easypost-popup', FRM_EAP_BASE_PATH.'assets/css/easypost-label-popup.css?time='.time() );
     wp_enqueue_script('ep-easypost-popup', FRM_EAP_BASE_PATH.'assets/js/easypost-label-popup.js?time='.time(), ['jquery'], null, true);
 
     // Pass data to JS
     wp_localize_script('ep-easypost-popup', 'epPopup', [
-        'ajaxUrl' => admin_url('admin-ajax.php'),
-        'nonce'   => wp_create_nonce('ep_easypost_nonce'),
-        // Prefill messages (JS reads them into inputs at open time if you prefer)
-        'prefill' => [
+        'ajaxUrl'  => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('ep_easypost_nonce'),
+        'prefill'  => [
             'label_message1' => $label1,
             'label_message2' => $label2,
         ],
+        'tomorrow' => $tomorrow,
     ]);
 
     // ---------- HTML ----------
@@ -170,6 +174,31 @@ function ep_short_easypost_label_popup($atts) {
                   <input id="ep-label-msg2" value="<?php echo esc_attr($label2); ?>">
                 </div>
               </div>
+
+              <!-- NEW: Label date -->
+              <div class="ep-row-1">
+                <div class="ep-field">
+                  <label>Label date</label>
+                  <input
+                      id="ep-label-date"
+                      name="label_date"
+                      type="date"
+                      min="<?php echo esc_attr($tomorrow); ?>"
+                      value="<?php echo esc_attr($tomorrow); ?>">
+                </div>
+              </div>
+
+              <!-- Quick +1..+10 tags -->
+              <div class="ep-row-1">
+                  <div class="ep-field">
+                      <div id="ep-date-tags">
+                          <?php for ($i = 1; $i <= 10; $i++): ?>
+                              <span class="ep-date-tag" data-add="<?php echo $i; ?>">+<?php echo $i; ?></span>
+                          <?php endfor; ?>
+                      </div>
+                  </div>
+              </div>
+
             </div>
 
             <!-- Rates + Actions -->
@@ -188,7 +217,6 @@ function ep_short_easypost_label_popup($atts) {
               </div>
 
               <div id="ep-ep-status" aria-live="polite"></div>
-
               <div id="ep-ep-tracking-link" style="margin-top:8px;"></div>
             </div>
           </div>
@@ -196,6 +224,26 @@ function ep_short_easypost_label_popup($atts) {
         </div>
       </div>
     </div>
+
+    <!-- Inline JS only for quick date tags -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const dateInput = document.getElementById('ep-label-date');
+        if (!dateInput) return;
+
+        const tags = document.querySelectorAll('.ep-date-tag');
+        tags.forEach(function (tag) {
+            tag.addEventListener('click', function () {
+                const add = parseInt(tag.dataset.add, 10);
+                const d = new Date();
+                d.setDate(d.getDate() + add);
+                const iso = d.toISOString().substring(0, 10);
+                dateInput.value = iso;
+            });
+        });
+    });
+    </script>
+
     <?php
     return ob_get_clean();
 }

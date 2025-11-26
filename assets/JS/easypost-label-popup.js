@@ -135,7 +135,8 @@
           weight: parseFloat($('#ep-parcel-weight').val() || '0'),
         },
         label_message1: $('#ep-label-msg1').val(),
-        label_message2: $('#ep-label-msg2').val()
+        label_message2: $('#ep-label-msg2').val(),
+        label_date:    $('#ep-label-date').val()
       };
     }
   
