@@ -41,23 +41,33 @@ function ep_short_easypost_label_popup($atts) {
     $label1 = isset($opts['label_message1']) ? (string)$opts['label_message1'] : '';
     $label2 = isset($opts['label_message2']) ? (string)$opts['label_message2'] : '';
 
-    // Tomorrow for min date, empty by default
-    $tomorrow = '';
-    //$tomorrow = date('Y-m-d', strtotime('+1 day'));
+    // Dates
+    $tomorrow_ts       = strtotime('+1 day');
+    $tomorrow_php_mmdd = date('m/d/Y', $tomorrow_ts); // for visible value
 
     // Register + enqueue (scoped to this render)
     wp_enqueue_style('ep-easypost-popup', FRM_EAP_BASE_PATH.'assets/css/easypost-label-popup.css?time='.time() );
     wp_enqueue_script('ep-easypost-popup', FRM_EAP_BASE_PATH.'assets/js/easypost-label-popup.js?time='.time(), ['jquery'], null, true);
 
+    // jQuery UI Datepicker (WP has this script)
+    wp_enqueue_script('jquery-ui-datepicker');
+
+    // Simple jQuery UI base theme (can be moved to your plugin assets if you prefer)
+    wp_enqueue_style(
+        'jquery-ui-base',
+        'https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css',
+        [],
+        '1.13.2'
+    );
+
     // Pass data to JS
     wp_localize_script('ep-easypost-popup', 'epPopup', [
-        'ajaxUrl'  => admin_url('admin-ajax.php'),
-        'nonce'    => wp_create_nonce('ep_easypost_nonce'),
-        'prefill'  => [
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('ep_easypost_nonce'),
+        'prefill' => [
             'label_message1' => $label1,
             'label_message2' => $label2,
         ],
-        'tomorrow' => $tomorrow,
     ]);
 
     // ---------- HTML ----------
@@ -175,30 +185,32 @@ function ep_short_easypost_label_popup($atts) {
                 </div>
               </div>
 
-              <!-- NEW: Label date -->
+              <!-- Label date (jQuery UI datepicker) -->
               <div class="ep-row-1">
                 <div class="ep-field">
                   <label>Label date</label>
                   <input
                       id="ep-label-date"
                       name="label_date"
-                      type="date"
-                      min="<?php echo esc_attr($tomorrow); ?>"
-                      value="<?php echo esc_attr($tomorrow); ?>">
+                      type="text"
+                      class="ep-date-input"
+                      placeholder="MM/DD/YYYY"
+                      value="<?php echo esc_attr($tomorrow_php_mmdd); ?>">
                 </div>
               </div>
 
-              <!-- Quick +1..+10 tags -->
+              <!-- Date tags 0..10 -->
               <div class="ep-row-1">
-                  <div class="ep-field">
-                      <div id="ep-date-tags">
-                          <?php for ($i = 1; $i <= 10; $i++): ?>
-                              <span class="ep-date-tag" data-add="<?php echo $i; ?>">+<?php echo $i; ?></span>
-                          <?php endfor; ?>
-                      </div>
+                <div class="ep-field">
+                  <div id="ep-date-tags">
+                    <?php for ($i = 0; $i <= 10; $i++): ?>
+                      <span class="ep-date-tag" data-add="<?php echo $i; ?>">
+                        +<?php echo $i; ?>
+                      </span>
+                    <?php endfor; ?>
                   </div>
+                </div>
               </div>
-
             </div>
 
             <!-- Rates + Actions -->
@@ -225,21 +237,38 @@ function ep_short_easypost_label_popup($atts) {
       </div>
     </div>
 
-    <!-- Inline JS only for quick date tags -->
+    <!-- Inline JS: jQuery UI datepicker + date tags -->
     <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const dateInput = document.getElementById('ep-label-date');
-        if (!dateInput) return;
+    jQuery(function($) {
+        var $dateInput = $('#ep-label-date');
 
-        const tags = document.querySelectorAll('.ep-date-tag');
-        tags.forEach(function (tag) {
-            tag.addEventListener('click', function () {
-                const add = parseInt(tag.dataset.add, 10);
-                const d = new Date();
-                d.setDate(d.getDate() + add);
-                const iso = d.toISOString().substring(0, 10);
-                dateInput.value = iso;
+        if ($dateInput.length) {
+            // Init jQuery UI datepicker with mm/dd/yyyy
+            $dateInput.datepicker({
+                dateFormat: 'mm/dd/yy', // ex: 11/27/2025
+                minDate: 0 // tomorrow
             });
+
+            // Ensure initial value respects datepicker formatting
+            var initialVal = $dateInput.val();
+            if (initialVal) {
+                // Datepicker will parse the text if it matches the format
+                $dateInput.datepicker('setDate', initialVal);
+            }
+        }
+
+        // Tags 0..10: today + N days → set datepicker date
+        $('.ep-date-tag').on('click', function() {
+            if (!$dateInput.length) return;
+
+            var add = parseInt($(this).data('add'), 10);
+            if (isNaN(add)) add = 0;
+
+            var d = new Date();
+            d.setHours(0,0,0,0);
+            d.setDate(d.getDate() + add);
+
+            $dateInput.datepicker('setDate', d);
         });
     });
     </script>
