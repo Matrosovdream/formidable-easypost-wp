@@ -105,6 +105,24 @@
         setNormalized(normSel, null);
       });
     }
+
+    function epGetLabelDateIso() {
+        var v = jQuery('#ep-label-date').val().trim();
+        if (!v) return '';
+    
+        // Expect mm/dd/yyyy
+        var parts = v.split('/');
+        if (parts.length !== 3) {
+            return v; // fallback: send as-is if unexpected
+        }
+    
+        var mm = parts[0].padStart(2, '0');
+        var dd = parts[1].padStart(2, '0');
+        var yyyy = parts[2];
+    
+        return yyyy + '-' + mm + '-' + dd; // YYYY-MM-DD
+    }
+  
   
     // ---- Form reader ----
     function readForm(){
@@ -136,7 +154,7 @@
         },
         label_message1: $('#ep-label-msg1').val(),
         label_message2: $('#ep-label-msg2').val(),
-        label_date:    $('#ep-label-date').val()
+        label_date: epGetLabelDateIso(),
       };
     }
   
