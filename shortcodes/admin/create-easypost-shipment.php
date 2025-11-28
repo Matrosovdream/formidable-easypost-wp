@@ -41,18 +41,14 @@ function ep_short_easypost_label_popup($atts) {
     $label1 = isset($opts['label_message1']) ? (string)$opts['label_message1'] : '';
     $label2 = isset($opts['label_message2']) ? (string)$opts['label_message2'] : '';
 
-    // Dates
-    $tomorrow_ts       = strtotime('+1 day');
-    $tomorrow_php_mmdd = date('m/d/Y', $tomorrow_ts); // for visible value
-
     // Register + enqueue (scoped to this render)
-    wp_enqueue_style('ep-easypost-popup', FRM_EAP_BASE_PATH.'assets/css/easypost-label-popup.css?time='.time() );
-    wp_enqueue_script('ep-easypost-popup', FRM_EAP_BASE_PATH.'assets/js/easypost-label-popup.js?time='.time(), ['jquery'], null, true);
+    wp_enqueue_style('ep-easypost-popup', FRM_EAP_BASE_PATH . 'assets/css/easypost-label-popup.css?time=' . time());
+    wp_enqueue_script('ep-easypost-popup', FRM_EAP_BASE_PATH . 'assets/js/easypost-label-popup.js?time=' . time(), ['jquery'], null, true);
 
     // jQuery UI Datepicker (WP has this script)
     wp_enqueue_script('jquery-ui-datepicker');
 
-    // Simple jQuery UI base theme (can be moved to your plugin assets if you prefer)
+    // Simple jQuery UI base theme (or replace with your own bundled CSS)
     wp_enqueue_style(
         'jquery-ui-base',
         'https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css',
@@ -195,7 +191,7 @@ function ep_short_easypost_label_popup($atts) {
                       type="text"
                       class="ep-date-input"
                       placeholder="MM/DD/YYYY"
-                      value="<?php echo esc_attr($tomorrow_php_mmdd); ?>">
+                      value="">
                 </div>
               </div>
 
@@ -237,33 +233,54 @@ function ep_short_easypost_label_popup($atts) {
       </div>
     </div>
 
-    <!-- Inline JS: jQuery UI datepicker + date tags -->
+    <!-- Inline JS: jQuery UI datepicker + date tags + ISO helper -->
     <script>
     jQuery(function($) {
         var $dateInput = $('#ep-label-date');
 
+        // Init jQuery UI datepicker, format mm/dd/yyyy, min tomorrow
         if ($dateInput.length) {
-            // Init jQuery UI datepicker with mm/dd/yyyy
             $dateInput.datepicker({
-                dateFormat: 'mm/dd/yy', // ex: 11/27/2025
-                minDate: 0 // tomorrow
+                dateFormat: 'mm/dd/yy', // shows as mm/dd/yyyy
+                minDate: 1 // tomorrow
             });
-
-            // Ensure initial value respects datepicker formatting
-            var initialVal = $dateInput.val();
-            if (initialVal) {
-                // Datepicker will parse the text if it matches the format
-                $dateInput.datepicker('setDate', initialVal);
-            }
         }
 
-        // Tags 0..10: today + N days → set datepicker date
+        // Global helper: convert mm/dd/yyyy -> yyyy-mm-dd for AJAX
+        window.epGetLabelDateIso = function() {
+            var v = $dateInput.val() ? $dateInput.val().trim() : '';
+            if (!v) {
+                return '';
+            }
+
+            var parts = v.split('/');
+            if (parts.length !== 3) {
+                return v; // fallback if unexpected
+            }
+
+            var mm = parts[0].padStart(2, '0');
+            var dd = parts[1].padStart(2, '0');
+            var yyyy = parts[2];
+
+            return yyyy + '-' + mm + '-' + dd; // YYYY-MM-DD
+        };
+
+        // Date tags: 0..10
         $('.ep-date-tag').on('click', function() {
             if (!$dateInput.length) return;
 
             var add = parseInt($(this).data('add'), 10);
-            if (isNaN(add)) add = 0;
+            if (isNaN(add)) {
+                add = 0;
+            }
 
+            // If 0 clicked → clear date
+            if (add === 0) {
+                $dateInput.val('');
+                return;
+            }
+
+            // For 1..10 → today + N days
             var d = new Date();
             d.setHours(0,0,0,0);
             d.setDate(d.getDate() + add);
