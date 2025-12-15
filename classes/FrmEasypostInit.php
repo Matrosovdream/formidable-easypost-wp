@@ -96,8 +96,8 @@ class FrmEasypostInit {
         // Shipment Rate model
         require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentRateModel.php';
 
-        // Shipment Address corporate
-        //require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentAddressCorpModel.php';
+        // Shipment History model
+        require_once FRM_EAP_BASE_URL.'/classes/models/FrmEasypostShipmentHistoryModel.php';
 
     }
 
