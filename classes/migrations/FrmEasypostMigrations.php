@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class FrmEasypostMigrations {
 
-    public const DB_VERSION     = '1.0.3';
+    public const DB_VERSION     = '1.0.4';
     public const VERSION_OPTION = 'easypost_wp_db_version';
 
     /** Run on plugin activation */
@@ -17,6 +17,7 @@ class FrmEasypostMigrations {
 
         // Build SQL for all tables
         $shipments_sql   = self::sql_easypost_shipments( $prefix, $charset_collate );
+        $shipment_history_sql = self::sql_easypost_shipment_history( $prefix, $charset_collate );
         $addresses_sql   = self::sql_easypost_shipment_addresses( $prefix, $charset_collate );
         $parcel_sql      = self::sql_easypost_shipment_parcel( $prefix, $charset_collate );
         $label_sql       = self::sql_easypost_shipment_label( $prefix, $charset_collate );
@@ -24,6 +25,7 @@ class FrmEasypostMigrations {
 
         // Create/upgrade tables
         dbDelta( $shipments_sql );
+        dbDelta( $shipment_history_sql );
         dbDelta( $addresses_sql );
         dbDelta( $parcel_sql );
         dbDelta( $label_sql );
@@ -64,6 +66,25 @@ class FrmEasypostMigrations {
             KEY idx_entry_id (entry_id),
             KEY idx_tracking_code (tracking_code),
             KEY idx_status (status)
+        ) {$collate};";
+    }
+
+    /**
+     * 3) frm_easypost_shipment_history
+     * - Example fields in prompt:
+     * easypost_id, easypost_shipment_id, user_id, change_type
+     */
+    private static function sql_easypost_shipment_history( string $prefix, string $collate ): string {
+        $table = $prefix . 'frm_easypost_shipment_history';
+        return "CREATE TABLE {$table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            shipment_id bigint(20) unsigned NOT NULL,
+            easypost_shipment_id varchar(64) NOT NULL,
+            user_id bigint(20) unsigned NULL,
+            change_type varchar(100) NOT NULL,
+            description text NULL,
+            created_at datetime NULL,
+            PRIMARY KEY  (id)
         ) {$collate};";
     }
 
