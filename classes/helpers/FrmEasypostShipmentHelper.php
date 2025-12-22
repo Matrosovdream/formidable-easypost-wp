@@ -274,4 +274,11 @@ class FrmEasypostShipmentHelper {
 
     }
 
+    public function AddHistoryRecord( array $payload ) {
+
+        $historyModel = new FrmEasypostShipmentHistoryModel();
+        return $historyModel->create( $payload );
+
+    }
+
 }
