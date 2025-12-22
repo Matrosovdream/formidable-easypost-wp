@@ -4,12 +4,6 @@ add_action('frm_easypost_label_bought', 'frm_easypost_label_bought_func', 10, 1)
 function frm_easypost_label_bought_func($label) {
 
     $general = $label['general'];
-    
-    /*
-    echo "<pre>";
-    print_r($label);
-    echo "</pre>";
-    */
 
     $helper = new FrmEasypostShipmentHelper;
 

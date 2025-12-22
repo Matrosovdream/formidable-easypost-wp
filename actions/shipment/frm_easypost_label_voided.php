@@ -5,12 +5,6 @@ function frm_easypost_label_voided_func($label) {
     
     $shipment = $label['shipment'];
 
-    /*
-    echo "<pre>";
-    print_r($shipment);
-    echo "</pre>";
-    */
-
     $helper = new FrmEasypostShipmentHelper;
 
     $payload = [
