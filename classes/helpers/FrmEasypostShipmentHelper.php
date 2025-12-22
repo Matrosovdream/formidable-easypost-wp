@@ -286,4 +286,22 @@ class FrmEasypostShipmentHelper {
 
     }
 
+    public function getHistoryByShipmentNumber( string $easypostShipmentId, array $opts = [] ) {
+
+        $historyModel = new FrmEasypostShipmentHistoryModel();
+        $items = $historyModel->getList( [ 'easypost_shipment_id' => $easypostShipmentId ], $opts );
+
+        foreach ( $items as &$item ) {
+            
+            // user_id to user
+            if ( !empty( $item['user_id'] ) ) {
+                $item = get_user_by( 'id', (int) $item['user_id'] );
+            }
+
+        }
+
+        return $items;
+
+    }
+
 }
