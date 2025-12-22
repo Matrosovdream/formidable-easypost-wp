@@ -28,6 +28,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
     protected $parcelModel;
     protected $labelModel;
     protected $rateModel;
+    protected $historyModel;
 
     public function __construct() {
         global $wpdb;
@@ -39,6 +40,8 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         $this->parcelModel = new FrmEasypostShipmentParcelModel();
         $this->labelModel = new FrmEasypostShipmentLabelModel();
         $this->rateModel = new FrmEasypostShipmentRateModel();
+        $this->historyModel = new FrmEasypostShipmentHistoryModel();
+
     }
 
     /**
@@ -233,6 +236,9 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         // Rate
         $rate = $this->rateModel->getByShipmentId( $shipment['easypost_id'] );
 
+        // History
+        $history = $this->historyModel->getByShipmentNumber( $shipment['easypost_id'] );
+
         return array_merge( $shipment, [
             'addresses' => [
                 'to' => $to,
@@ -241,6 +247,7 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
             'parcel' => $parcel,
             'label' => $label,
             'rate' => $rate,
+            'history' => $history,
             'is_refundable' => $this->isRefundable( $shipment )
         ] );
 
