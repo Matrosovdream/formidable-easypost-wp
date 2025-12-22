@@ -29,7 +29,7 @@ function FrmEasypostInit() {
     
     if( isset( $_GET['logg'] ) ) {
 
-        lumaShipmentTest();
+        //lumaShipmentTest();
         //voidShipments();
         //saveEntryPdf();
         //streamOriginEntryPdf();
@@ -41,7 +41,7 @@ function FrmEasypostInit() {
         //getShipments();
         //getPredefinedPackages();
         //verifyAddress();
-        //getShipmentModel();
+        getShipmentModel();
         //updateShipmentsApi();
         //getAddressesApi();
         //getEntryAddresses();
@@ -294,7 +294,7 @@ function getAddressesApi() {
 function getShipmentModel() {
 
     $model = new FrmEasypostShipmentModel();
-    $shipment = $model->getAllByEntryId(125);
+    $shipment = $model->getAllByEntryId(64815);
 
     echo '<pre>';
     print_r($shipment);
