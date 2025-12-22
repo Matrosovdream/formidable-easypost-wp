@@ -17,6 +17,13 @@ abstract class FrmEasypostAbstractModel {
 
     }
 
+    public function create( array $data ): int {
+
+        $this->db->insert( $this->table, $data );
+        return (int) $this->db->insert_id;
+
+    }
+
 
     protected function multipleUpdateCreateAbstract( array $rows, array $cols, array $formats, string $uniqueKey ) {
 

@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class FrmEasypostMigrations {
 
-    public const DB_VERSION     = '1.0.4';
+    public const DB_VERSION     = '1.0.6';
     public const VERSION_OPTION = 'easypost_wp_db_version';
 
     /** Run on plugin activation */
@@ -78,8 +78,8 @@ class FrmEasypostMigrations {
         $table = $prefix . 'frm_easypost_shipment_history';
         return "CREATE TABLE {$table} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            shipment_id bigint(20) unsigned NOT NULL,
-            easypost_shipment_id varchar(64) NOT NULL,
+            shipment_id bigint(20) unsigned NULL,
+            easypost_shipment_id varchar(64) NULL,
             user_id bigint(20) unsigned NULL,
             change_type varchar(100) NOT NULL,
             description text NULL,

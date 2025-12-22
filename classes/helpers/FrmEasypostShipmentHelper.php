@@ -276,6 +276,11 @@ class FrmEasypostShipmentHelper {
 
     public function AddHistoryRecord( array $payload ) {
 
+        // Set created_at as a date/time now
+        if ( empty( $payload['created_at'] ) ) {
+            $payload['created_at'] = current_time('mysql', 1);
+        }
+
         $historyModel = new FrmEasypostShipmentHistoryModel();
         return $historyModel->create( $payload );
 

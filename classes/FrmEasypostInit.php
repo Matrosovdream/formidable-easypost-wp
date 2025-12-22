@@ -177,6 +177,10 @@ class FrmEasypostInit {
         // Create/update Formidable entry 
         require_once FRM_EAP_BASE_URL.'/actions//admin/frm_after_create_update_entry.php';
 
+        // Shipment/Label actions, new folder
+        require_once FRM_EAP_BASE_URL.'/actions/shipment/frm_easypost_label_bought.php';
+        require_once FRM_EAP_BASE_URL.'/actions/shipment/frm_easypost_label_voided.php';
+
     }
 
     private function include_filters() {
