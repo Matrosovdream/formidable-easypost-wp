@@ -139,4 +139,46 @@ class FrmEasypostShipmentHistoryModel extends FrmEasypostAbstractModel {
 
         return $rows;
     }
+
+    public function getByShipmentNumber( string $easypost_shipment_id='' ): array|null {
+
+        if ( empty( $easypost_shipment_id ) ) {
+            return null;
+        }
+
+        $filter = [
+            'easypost_shipment_id' => $easypost_shipment_id,
+        ];
+        $opts   = [
+            'order_by' => 'created_at',
+            'order'    => 'DESC'
+        ];
+
+        $items = $this->getList( $filter, $opts );
+        
+        foreach ( $items as &$item ) {
+            
+            // user_id to user
+            if ( !empty( $item['user_id'] ) ) {
+                $user = get_user_by( 'id', (int) $item['user_id'] );
+                if ( $user ) {
+                    $item['user'] = [
+                        'id'       => $user->ID,
+                        'username' => $user->user_login,
+                        'email'    => $user->user_email,
+                        'name'     => $user->display_name
+                    ];
+                }
+            }
+
+            // Date format to US readable
+            $item['created_at'] = date( 'Y-m-d H:i', strtotime( $item['created_at'] ) );
+
+
+        }
+
+
+        return $items;
+    }
+
 }
