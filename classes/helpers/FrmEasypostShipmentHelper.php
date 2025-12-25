@@ -18,12 +18,19 @@ class FrmEasypostShipmentHelper {
         $this->rateModel = new FrmEasypostShipmentRateModel();
     }
 
-    public function updateShipmentApi( string $shipmentId ) {
+    public function updateShipmentApi( string $shipmentId ):bool {
 
         $shipment = $this->shipmentApi->getShipmentById( $shipmentId );
 
+        if( !isset( $shipment['general'] ) ) {
+            return false;
+        }
+
         // Update shipment in DB
         $this->updateShipmentsDB( [$shipment] );
+
+        // Successfuly updated
+        return true;
 
     }
 
