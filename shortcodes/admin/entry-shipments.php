@@ -100,6 +100,7 @@ add_shortcode('easypost-shipments', function ($atts) {
 
             $easypost_id  = (string)($s['easypost_id'] ?? '');
             $tracking     = (string)($s['tracking_code'] ?? '');
+            $tracking_url = (string)($s['tracking_url'] ?? ''); 
             $status       = (string)($s['status'] ?? '');
             $created_at   = (string)($s['created_at'] ?? '');
             $updated_at   = (string)($s['updated_at'] ?? '');
@@ -119,7 +120,9 @@ add_shortcode('easypost-shipments', function ($atts) {
 
                 <div style="display:flex;gap:8px;align-items:center;">
                     <strong>Track Number:</strong>
-                    <span class="easyspot-badge">#<?php echo esc_html($tracking); ?></span>
+                    <a href="<?php echo esc_attr($tracking_url); ?>" target="_blank">
+                        <span class="easyspot-badge">#<?php echo esc_html($tracking); ?></span>
+                    </a>
                 </div>
 
                 <div><strong>Status:</strong> <?php echo esc_html($status ?: '—'); ?></div>
