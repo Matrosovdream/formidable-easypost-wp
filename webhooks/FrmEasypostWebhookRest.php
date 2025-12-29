@@ -17,10 +17,10 @@ final class FrmEasypostWebhookRest {
     private const DEFAULT_DELAY_SECONDS = 3;
 
     /** If updateShipmentApi() returns null, retry this single event after N seconds */
-    private const RETRY_DELAY_SECONDS = 2;
+    private const RETRY_DELAY_SECONDS = 5;
 
     /** Safety cap to avoid infinite retries */
-    private const MAX_RETRIES = 10;
+    private const MAX_RETRIES = 50;
 
     /** Cron hook name */
     private const CRON_HOOK = 'frm_easypost_process_shipment_update';
@@ -79,14 +79,44 @@ final class FrmEasypostWebhookRest {
         }
 
         switch ($event) {
-            case 'tracker.updated':
             case 'tracker.created':
                 self::update_shipment($result);
+                break;
+            case 'tracker.updated':
+                self::update_shipment($result);
+                self::maybe_update_status($result);
+                break;
+            case 'refund.successful':
+                self::update_shipment($result);
+                self::maybe_update_status($result);
                 break;
             default:
                 // ignore other events
                 break;
         }
+    }
+
+    private static function maybe_update_status(array $data) {
+
+        $shipmentId = $data['shipment_id'] ?? null;
+        $shipmentStatus = $data['status'] ?? null;
+        if ( ! $shipmentId || ! $shipmentStatus ) { return; }
+
+        $shipmentModel = new FrmEasypostShipmentModel();
+        $shipmentHelper = new FrmEasypostShipmentHelper();
+
+        $shipmentDB = $shipmentModel->getByEasypostId( $shipmentId );
+
+        if( !$shipmentDB ) {
+            return;
+        }
+
+        if( $shipmentDB->status === $shipmentStatus ) {
+            return;
+        }
+
+        $shipmentHelper->updateShipmentStatus( $shipmentId, $shipmentStatus );
+
     }
 
     /**
