@@ -212,6 +212,11 @@ class FrmEasypostShipmentModel extends FrmEasypostAbstractModel {
         return $rows[0] ?? null;
     }
 
+    public function updateByEasypostId( string $easypostId, array $data ): int {
+        $where = [ 'easypost_id' => $easypostId ];
+        return $this->updateAbstract( $data, $where );
+    }
+
     private function attachModelData( array $shipment ) {
         
         // Addresses 
