@@ -83,7 +83,7 @@ class FrmEasypostShipmentHelper {
                 'refund_status' => !empty($general['refund_status']) ? $general['refund_status'] : null,
                 'mode' => !empty($general['mode']) ? $general['mode'] : 'test',
                 'created_at' => !empty($general['created_at']) ? date('Y-m-d H:i:s', strtotime($general['created_at'])) : null,
-                'updated_at' => !empty($general['updated_at']) ? date('Y-m-d H:i:s', strtotime($general['updated_at'])) : null,
+                'updated_at' => date('Y-m-d H:i:s'),
             ];
 
         }
@@ -308,6 +308,31 @@ class FrmEasypostShipmentHelper {
         }
 
         return $items;
+
+    }
+
+    public function updateShipmentStatus( string $easypostShipmentId, string $status ) {
+
+        if ( empty( $easypostShipmentId ) || empty( $status ) ) {
+            return false;
+        }
+
+        $shipmentModel = new FrmEasypostShipmentModel();
+        $shipmentDB = $shipmentModel->getByEasypostId( $easypostShipmentId );
+
+        if( 
+            !$shipmentDB || $shipmentDB['status'] === $status
+            ) {
+            return false;
+        }
+
+        $oldStatus = $shipmentDB['status'];
+        $newStatus = $status;
+
+        $shipmentModel->updateByEasypostId( $easypostShipmentId, [ 'status' => $newStatus ] );
+
+        // Shipment Data, Old Status, New Status
+        do_action('frm_easypost_shipment_status_updated', $shipmentDB, $oldStatus, $newStatus );
 
     }
 
