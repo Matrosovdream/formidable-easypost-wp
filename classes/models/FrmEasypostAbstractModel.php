@@ -93,6 +93,41 @@ abstract class FrmEasypostAbstractModel {
 
     }
 
+    public function updateAbstract( array $data, array $where ): int {
+
+        $whereSql = [];
+        $whereVals = [];
+        foreach ( $where as $col => $val ) {
+            $whereSql[] = "{$col} = %s";
+            $whereVals[] = (string) $val;
+        }
+        $whereClause = implode( ' AND ', $whereSql );
+
+        $formats = array_map( fn($v) => '%s', array_keys( $data ) );
+        $setSql = [];
+        $setVals = [];
+        foreach ( $data as $col => $val ) {
+            $setSql[] = "{$col} = %s";
+            $setVals[] = (string) $val;
+        }
+        $setClause = implode( ', ', $setSql );
+
+        // Set updated_at as now
+        $setClause .= ", updated_at = NOW()";
+
+        $sql = "UPDATE {$this->table} SET {$setClause} WHERE {$whereClause}";
+
+        $allVals = array_merge( $setVals, $whereVals );
+        $preparedSql = $this->db->prepare( $sql, $allVals );
+
+        $res = $this->db->query( $preparedSql );
+        if ( $res === false ) {
+            return 0;
+        }
+        return (int) $res;
+
+    }
+
     /** Get by entry_id */
     public function getByEntryId( int $entryId ) {
         $rows = $this->getList( [ 'entry_id' => $entryId ], [ 'limit' => 1 ] );
