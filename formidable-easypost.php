@@ -16,6 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 define('FRM_EAP_BASE_URL', __DIR__);
 define('FRM_EAP_BASE_PATH', plugin_dir_url(__FILE__));
 
+// References
+require_once 'references.php';
+
 // Initialize core
 require_once 'classes/FrmEasypostInit.php';
 
@@ -41,10 +44,10 @@ function FrmEasypostInit() {
         //getShipments();
         //getPredefinedPackages();
         //verifyAddress();
-        getShipmentModel();
+        //getShipmentModel();
         //updateShipmentsApi();
         //getAddressesApi();
-        //getEntryAddresses();
+        getEntryAddresses();
         //getCarrierAccounts();
 
         die();
@@ -266,7 +269,7 @@ function createLabel() {
 
 function getEntryAddresses() {
 
-    $entry_id = 114362;
+    $entry_id = 64823;
     $model = new FrmEasypostEntryHelper();
     $addresses = $model->getEntryAddresses($entry_id);
 
