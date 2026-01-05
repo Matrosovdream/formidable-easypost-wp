@@ -80,7 +80,7 @@ final class FrmEasypostWebhookRest {
 
         switch ($event) {
             case 'tracker.created':
-                //self::update_shipment($result);
+                self::update_shipment($result);
                 self::maybe_update_status($result);
                 break;
             case 'tracker.updated':
@@ -88,7 +88,7 @@ final class FrmEasypostWebhookRest {
                 self::maybe_update_status($result);
                 break;
             case 'refund.successful':
-                //self::update_shipment($result);
+                self::update_shipment($result);
                 self::maybe_update_status($result);
                 break;
             default:
