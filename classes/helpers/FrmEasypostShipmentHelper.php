@@ -336,4 +336,30 @@ class FrmEasypostShipmentHelper {
 
     }
 
+    /*
+    Takes array of shipments 
+
+    Array structure:
+    [
+        [
+            'shipment_id' => 'shp_...',
+            ...
+        ],
+        ...
+    ]
+    */
+    public function updateShipmentsWithCron( array $shipments ) {
+
+        if ( empty( $shipments ) || empty( $event ) ) {
+            return false;
+        }
+
+        foreach( $shipments as $item ) {  
+
+            FrmEasypostWebhookRest::update_shipment( $item );
+
+        }
+
+    }
+
 }
