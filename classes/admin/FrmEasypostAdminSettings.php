@@ -69,12 +69,30 @@ final class FrmEasypostAdminSettings {
      * Register settings (Settings API sections/fields)
      */
     public function register_settings(): void {
+
         register_setting( 'frm_easypost', self::OPTION_NAME, [
             'type'              => 'array',
             'sanitize_callback' => [ $this, 'sanitize_settings' ],
             'show_in_rest'      => false,
             'default'           => $this->defaults(),
         ] );
+
+        add_settings_section(
+            'frm_easypost_processing_time',
+            __( 'Processing time', 'frm-easypost' ),
+            function () {
+                echo '<p>' . esc_html__( 'Configure default processing time rules used by your shipping/label logic.', 'frm-easypost' ) . '</p>';
+            },
+            'frm_easypost_processing'
+        );
+
+        add_settings_field(
+            'processing_time_rules',
+            __( 'Processing time mapping', 'frm-easypost' ),
+            [ $this, 'field_processing_time_rules' ],
+            'frm_easypost_processing',
+            'frm_easypost_processing_time'
+        );
 
         /**
          * PAGE: Settings (page slug used for sections below is 'frm_easypost')
@@ -297,6 +315,8 @@ final class FrmEasypostAdminSettings {
             // NEW: Shipment management
             'void_statuses'      => [],  // array of status keys
             'void_after_days'    => 0,   // int >= 0; 0 = disabled
+
+            'processing_time_rules' => [],
         ];
     }
 
@@ -309,7 +329,13 @@ final class FrmEasypostAdminSettings {
         }
 
         $this->settings = $this->get_settings();
+
+        $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
+        if ( ! in_array($tab, ['general','processing_time'], true) ) {
+            $tab = 'general';
+        }
         ?>
+        
         <div class="wrap frm-easypost-settings">
             <h1 style="display:flex;align-items:center;gap:12px;">
                 <span class="dashicons dashicons-admin-site" style="font-size:28px;line-height:1;"></span>
@@ -340,10 +366,34 @@ final class FrmEasypostAdminSettings {
             <form method="post" action="options.php">
                 <?php settings_fields( 'frm_easypost' ); ?>
 
+                <?php
+                $baseUrl = admin_url('admin.php?page=frm-easypost-settings');
+                ?>
+                <h2 class="nav-tab-wrapper" style="margin-top:14px;">
+                    <a class="nav-tab <?php echo $tab === 'general' ? 'nav-tab-active' : ''; ?>"
+                    href="<?php echo esc_url( add_query_arg(['tab' => 'general'], $baseUrl) ); ?>">
+                        <?php esc_html_e('General', 'frm-easypost'); ?>
+                    </a>
+
+                    <a class="nav-tab <?php echo $tab === 'processing_time' ? 'nav-tab-active' : ''; ?>"
+                    href="<?php echo esc_url( add_query_arg(['tab' => 'processing_time'], $baseUrl) ); ?>">
+                        <?php esc_html_e('Processing time', 'frm-easypost'); ?>
+                    </a>
+                </h2>
+
+
                 <div class="frm-easypost-stack">
                     <!-- Main settings card -->
                     <div class="card">
-                        <?php do_settings_sections( 'frm_easypost' ); ?>
+                        
+                        <?php
+                        if ( $tab === 'processing_time' ) {
+                            do_settings_sections( 'frm_easypost_processing' );
+                        } else {
+                            do_settings_sections( 'frm_easypost' );
+                        }
+                        ?>
+
                     </div>
 
                     <!-- Save button card (stacked under the main card) -->
@@ -424,6 +474,102 @@ final class FrmEasypostAdminSettings {
             bindDeletes(document);
         })();
         </script>
+
+
+        <?php if ( $tab === 'processing_time' ) : ?>
+        <script>
+        (function(){
+        const ptTable = document.getElementById('frm-easypost-processing-rules');
+        const addPtRowBtn = document.getElementById('frm-easypost-add-pt-row');
+        if (!ptTable || !addPtRowBtn) return;
+
+        const opt = '<?php echo esc_js(self::OPTION_NAME); ?>';
+
+        function bindPt(){
+            // delete top row
+            ptTable.querySelectorAll('.link-delete-row').forEach(btn => {
+            btn.onclick = function(){
+                const tr = this.closest('tr');
+                const tbody = ptTable.tBodies[0];
+                if (tr && tbody && tbody.rows.length > 1) tr.remove();
+            };
+            });
+
+            // delete inner row
+            ptTable.querySelectorAll('.link-delete-inner').forEach(btn => {
+            btn.onclick = function(){
+                const inner = this.closest('table');
+                const tbody = inner ? inner.tBodies[0] : null;
+                const tr = this.closest('tr');
+                if (tbody && tr && tbody.rows.length > 1) tr.remove();
+            };
+            });
+
+            // add inner row
+            ptTable.querySelectorAll('.frm-pt-add-inner').forEach(btn => {
+            btn.onclick = function(){
+                const outerTr = this.closest('tr.frm-pt-row');
+                const i = outerTr ? outerTr.getAttribute('data-idx') : null;
+                const innerTable = outerTr ? outerTr.querySelector('table[data-inner]') : null;
+                if (!innerTable || i === null) return;
+
+                const tbody = innerTable.tBodies[0];
+                const j = tbody.rows.length;
+
+                const tmpl = `
+                <tr>
+                    <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][${j}][service]" value="" placeholder="Priority, Express..." /></td>
+                    <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][${j}][packages]" value="" placeholder="FlatRateEnvelope, Parcel..." /></td>
+                    <td><button type="button" class="button link-delete-inner">✕</button></td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', tmpl);
+                bindPt();
+            };
+            });
+        }
+
+        addPtRowBtn.onclick = function(){
+            const tbody = ptTable.tBodies[0];
+            const i = tbody.rows.length;
+
+            const tmpl = `
+            <tr class="frm-pt-row" data-idx="${i}">
+                <td><input type="number" class="regular-text" style="width:120px;" name="${opt}[processing_time_rules][${i}][field_id]" value="" placeholder="e.g. 123" min="0" /></td>
+                <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][field_value]" value="" placeholder="e.g. Urgent" /></td>
+                <td>
+                <table class="frm-easypost-table frm-pt-inner" style="margin:0;" data-inner>
+                    <thead>
+                    <tr>
+                        <th style="width:35%">Service</th>
+                        <th style="width:60%">Packages (comma-separated)</th>
+                        <th style="width:5%"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][0][service]" value="" /></td>
+                        <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][0][packages]" value="" /></td>
+                        <td><button type="button" class="button link-delete-inner">✕</button></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="frm-easypost-actions" style="margin-top:8px;">
+                    <button type="button" class="button frm-pt-add-inner">Add service rule</button>
+                </div>
+                </td>
+                <td><button type="button" class="button link-delete-row">✕</button></td>
+            </tr>`;
+            tbody.insertAdjacentHTML('beforeend', tmpl);
+            bindPt();
+        };
+
+        bindPt();
+        })();
+        </script>
+        <?php endif; ?>
+
+
+
         <?php
     }
 
@@ -762,6 +908,54 @@ final class FrmEasypostAdminSettings {
             $output['void_after_days'] = $days;
         }
 
+        // NEW: processing_time_rules
+        if ( isset($input['processing_time_rules']) && is_array($input['processing_time_rules']) ) {
+            $rows = array_values(array_filter($input['processing_time_rules'], function($row){
+                return is_array($row) && (
+                    ! empty($row['field_id']) || ! empty($row['field_value']) || ! empty($row['rules'])
+                );
+            }));
+
+            $clean = [];
+            foreach ($rows as $row) {
+                $fieldId    = isset($row['field_id']) ? (int) $row['field_id'] : 0;
+                $fieldValue = sanitize_text_field( (string)($row['field_value'] ?? '') );
+
+                // nested rules
+                $rulesIn = (isset($row['rules']) && is_array($row['rules'])) ? $row['rules'] : [];
+                $rulesIn = array_values(array_filter($rulesIn, function($r){
+                    return is_array($r) && ( ! empty($r['service']) || ! empty($r['packages']) );
+                }));
+
+                $rulesOut = [];
+                foreach ($rulesIn as $r) {
+                    $service = sanitize_text_field( trim((string)($r['service'] ?? '')) );
+                    $pkgsCsv = (string)($r['packages'] ?? '');
+
+                    $pkgList  = array_filter(array_map('trim', explode(',', $pkgsCsv)));
+                    $pkgsNorm = implode(', ', array_map('sanitize_text_field', $pkgList));
+
+                    if ($service !== '' || $pkgsNorm !== '') {
+                        $rulesOut[] = [
+                            'service'   => $service,
+                            'packages'  => $pkgsNorm, // CSV
+                        ];
+                    }
+                }
+
+                if ($fieldId > 0 || $fieldValue !== '' || ! empty($rulesOut)) {
+                    $clean[] = [
+                        'field_id'    => $fieldId,
+                        'field_value' => $fieldValue,
+                        'rules'       => $rulesOut,
+                    ];
+                }
+            }
+
+            $output['processing_time_rules'] = $clean;
+        }
+
+
         return $output;
     }
 
@@ -1031,6 +1225,101 @@ final class FrmEasypostAdminSettings {
         </div>
         <?php
     }
+
+    public function field_processing_time_rules(): void {
+        $opts = $this->get_settings();
+        $rows = isset($opts['processing_time_rules']) && is_array($opts['processing_time_rules'])
+            ? $opts['processing_time_rules']
+            : [];
+    
+        if (empty($rows)) {
+            $rows = [[ 'field_id' => '', 'field_value' => '', 'rules' => [ [ 'service' => '', 'packages' => '' ] ] ]];
+        }
+    
+        $opt = esc_attr(self::OPTION_NAME);
+        ?>
+        <table class="frm-easypost-table" id="frm-easypost-processing-rules">
+            <thead>
+            <tr>
+                <th style="width:15%"><?php esc_html_e('Processing time field ID', 'frm-easypost'); ?></th>
+                <th style="width:10%"><?php esc_html_e('Field value', 'frm-easypost'); ?></th>
+                <th style="width:70%"><?php esc_html_e('Service → Packages', 'frm-easypost'); ?></th>
+                <th style="width:5%"><?php esc_html_e('Actions', 'frm-easypost'); ?></th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($rows as $i => $row):
+                $fieldId    = (string)($row['field_id'] ?? '');
+                $fieldValue = (string)($row['field_value'] ?? '');
+                $rules      = (isset($row['rules']) && is_array($row['rules'])) ? $row['rules'] : [];
+                if (empty($rules)) $rules = [[ 'service' => '', 'packages' => '' ]];
+            ?>
+                <tr class="frm-pt-row" data-idx="<?php echo (int)$i; ?>">
+                    <td>
+                        <input type="number" class="regular-text" style="width:120px;"
+                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][field_id]"
+                               value="<?php echo esc_attr($fieldId); ?>"
+                               placeholder="e.g. 123" min="0" />
+                    </td>
+                    <td>
+                        <input type="text" class="regular-text1"
+                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][field_value]"
+                               value="<?php echo esc_attr($fieldValue); ?>"
+                               placeholder="e.g. Urgent" />
+                    </td>
+                    <td>
+                        <table class="frm-easypost-table frm-pt-inner" style="margin:0;" data-inner>
+                            <thead>
+                            <tr>
+                                <th style="width:35%"><?php esc_html_e('Service', 'frm-easypost'); ?></th>
+                                <th style="width:60%"><?php esc_html_e('Packages (comma-separated)', 'frm-easypost'); ?></th>
+                                <th style="width:5%"></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($rules as $j => $r):
+                                $service = (string)($r['service'] ?? '');
+                                $pkgs    = (string)($r['packages'] ?? '');
+                            ?>
+                                <tr>
+                                    <td>
+                                        <input type="text" class="regular-text1"
+                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][service]"
+                                               value="<?php echo esc_attr($service); ?>"
+                                               placeholder="Priority, Express..." />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="regular-text"
+                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][packages]"
+                                               value="<?php echo esc_attr($pkgs); ?>"
+                                               placeholder="FlatRateEnvelope, Parcel..." />
+                                    </td>
+                                    <td>
+                                        <button type="button" class="button link-delete-inner" aria-label="<?php esc_attr_e('Delete rule','frm-easypost'); ?>">✕</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+    
+                        <div class="frm-easypost-actions" style="margin-top:8px;">
+                            <button type="button" class="button frm-pt-add-inner"><?php esc_html_e('Add service rule', 'frm-easypost'); ?></button>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="button link-delete-row" aria-label="<?php esc_attr_e('Delete row','frm-easypost'); ?>">✕</button>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    
+        <div class="frm-easypost-actions">
+            <button type="button" class="button" id="frm-easypost-add-pt-row"><?php esc_html_e('Add mapping', 'frm-easypost'); ?></button>
+        </div>
+        <?php
+    }
+    
 
     /**
      * Field: multiselect for statuses
