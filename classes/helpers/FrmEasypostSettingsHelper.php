@@ -28,6 +28,11 @@ class FrmEasypostSettingsHelper {
         ];
     }
 
+    public function getProcessingTimeRules(): array {
+        $opts = $this->getAllSettings();
+        return isset($opts['processing_time_rules']) && is_array($opts['processing_time_rules']) ? $opts['processing_time_rules'] : [];
+    }
+
     public function getAllSettings() {
         return get_option('frm_easypost', []);
     }
