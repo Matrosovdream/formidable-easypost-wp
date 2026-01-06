@@ -61,6 +61,41 @@ function FrmEasypostInit() {
 
     }
 
+    if( isset( $_GET['update_shipments'] ) ) {
+        
+        updateShipmentsApiCron();
+        die();
+    }
+
+}
+
+function updateShipmentsApiCron() {
+    
+
+    global $wpdb;
+    // Where tracking_code length like 794612386500 and created_at >= 2025-12-29
+    $query = "SELECT * FROM {$wpdb->prefix}frm_easypost_shipments WHERE LENGTH(tracking_code) < 120 AND created_at >= '2025-12-29'";
+    $shipments = $wpdb->get_results( $query, ARRAY_A );
+
+    // Prepare array
+    $shipment_ids = [];
+    foreach( $shipments as $shipment ) {
+        $shipment_ids[] = [
+            'shipment_id' => $shipment['easypost_id'],
+        ];
+    }
+
+    echo '<pre>';
+    print_r($shipments);
+    echo '</pre>';
+
+    echo '<pre>';
+    print_r($shipment_ids);
+    echo '</pre>';
+
+    $shipmentHelper = new FrmEasypostShipmentHelper();
+    $shipmentHelper->updateShipmentsWithCron( $shipment_ids );
+
 }
 
 function lumaShipmentTest() {
