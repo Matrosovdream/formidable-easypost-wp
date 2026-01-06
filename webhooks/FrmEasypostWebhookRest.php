@@ -125,7 +125,7 @@ final class FrmEasypostWebhookRest {
      * 1) schedule a single cron event (+N seconds, default 3)
      * 2) event will run cron_process_shipment_update()
      */
-    private static function update_shipment(array $data): void {
+    public static function update_shipment(array $data): void {
         $shipmentId = $data['shipment_id'] ?? null;
         if ( ! $shipmentId ) { return; }
 
