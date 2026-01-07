@@ -30,7 +30,35 @@ class FrmEasypostSettingsHelper {
 
     public function getProcessingTimeRules(): array {
         $opts = $this->getAllSettings();
-        return isset($opts['processing_time_rules']) && is_array($opts['processing_time_rules']) ? $opts['processing_time_rules'] : [];
+        $rules = isset($opts['processing_time_rules']) && is_array($opts['processing_time_rules']) ? $opts['processing_time_rules'] : [];
+
+        // Group by field_id for easier lookup
+        $groupedRules = [];
+        foreach( $rules as $rule ) {
+            $fieldId = isset($rule['field_id']) ? (int)$rule['field_id'] : 0;
+            if( $fieldId > 0 ) {
+
+                // Prepare internal rules
+                $rulesNew = [];
+                foreach( $rule['rules'] as $r ) {
+
+                    $carrier = trim( strtolower($r['carrier']) );
+                    $servicesList = array_filter(array_map('trim', explode(',', (string)($r['services'] ?? ''))));
+
+                    $rulesNew[ $carrier ] = [
+                        'carrier'  => $r['carrier'],
+                        'services' => array_map('strtolower', $servicesList),
+                    ];
+
+                }
+                $rule['rules'] = $rulesNew;
+
+                $groupedRules[$fieldId][] = $rule;
+            }
+        }
+
+        return $groupedRules;
+
     }
 
     public function getAllSettings() {
