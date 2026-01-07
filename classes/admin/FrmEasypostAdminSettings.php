@@ -518,8 +518,8 @@ final class FrmEasypostAdminSettings {
 
                 const tmpl = `
                 <tr>
-                    <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][${j}][service]" value="" placeholder="Priority, Express..." /></td>
-                    <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][${j}][packages]" value="" placeholder="FlatRateEnvelope, Parcel..." /></td>
+                    <td><input type="text" class="regular-text2" name="${opt}[processing_time_rules][${i}][rules][${j}][carrier]" value="" placeholder="USPS" /></td>
+                    <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][${j}][services]" value="" placeholder="Priority, Express..." /></td>
                     <td><button type="button" class="button link-delete-inner">✕</button></td>
                 </tr>`;
                 tbody.insertAdjacentHTML('beforeend', tmpl);
@@ -535,20 +535,24 @@ final class FrmEasypostAdminSettings {
             const tmpl = `
             <tr class="frm-pt-row" data-idx="${i}">
                 <td><input type="number" class="regular-text" style="width:120px;" name="${opt}[processing_time_rules][${i}][field_id]" value="" placeholder="e.g. 123" min="0" /></td>
-                <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][field_value]" value="" placeholder="e.g. Urgent" /></td>
+                <td><input type="text" class="regular-text2" name="${opt}[processing_time_rules][${i}][field_value]" value="" placeholder="e.g. Urgent" /></td>
                 <td>
                 <table class="frm-easypost-table frm-pt-inner" style="margin:0;" data-inner>
                     <thead>
                     <tr>
-                        <th style="width:35%">Service</th>
-                        <th style="width:60%">Packages (comma-separated)</th>
+                        <th style="width:35%">Carrier</th>
+                        <th style="width:60%">Services (comma-separated)</th>
                         <th style="width:5%"></th>
                     </tr>
                     </thead>
                     <tbody>
+
+
+
+
                     <tr>
-                        <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][0][service]" value="" /></td>
-                        <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][0][packages]" value="" /></td>
+                        <td><input type="text" class="regular-text2" name="${opt}[processing_time_rules][${i}][rules][0][carrier]" value="" placeholder="USPS" /></td>
+                        <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][0][services]" value="" placeholder="Priority, Express..." /></td>
                         <td><button type="button" class="button link-delete-inner">✕</button></td>
                     </tr>
                     </tbody>
@@ -924,21 +928,21 @@ final class FrmEasypostAdminSettings {
                 // nested rules
                 $rulesIn = (isset($row['rules']) && is_array($row['rules'])) ? $row['rules'] : [];
                 $rulesIn = array_values(array_filter($rulesIn, function($r){
-                    return is_array($r) && ( ! empty($r['service']) || ! empty($r['packages']) );
+                    return is_array($r) && ( ! empty($r['carrier']) || ! empty($r['services']) );
                 }));
 
                 $rulesOut = [];
                 foreach ($rulesIn as $r) {
-                    $service = sanitize_text_field( trim((string)($r['service'] ?? '')) );
-                    $pkgsCsv = (string)($r['packages'] ?? '');
+                    $carrier = sanitize_text_field( trim((string)($r['carrier'] ?? '')) );
+                    $servicesCsv = (string)($r['services'] ?? '');
 
-                    $pkgList  = array_filter(array_map('trim', explode(',', $pkgsCsv)));
-                    $pkgsNorm = implode(', ', array_map('sanitize_text_field', $pkgList));
+                    $servicesList  = array_filter(array_map('trim', explode(',', $servicesCsv)));
+                    $servicesNorm = implode(', ', array_map('sanitize_text_field', $servicesList));
 
-                    if ($service !== '' || $pkgsNorm !== '') {
+                    if ($carrier !== '' || $servicesNorm !== '') {
                         $rulesOut[] = [
-                            'service'   => $service,
-                            'packages'  => $pkgsNorm, // CSV
+                            'carrier'   => $carrier,
+                            'services'  => $servicesNorm, // CSV
                         ];
                     }
                 }
@@ -1243,7 +1247,7 @@ final class FrmEasypostAdminSettings {
             <tr>
                 <th style="width:15%"><?php esc_html_e('Processing time field ID', 'frm-easypost'); ?></th>
                 <th style="width:10%"><?php esc_html_e('Field value', 'frm-easypost'); ?></th>
-                <th style="width:70%"><?php esc_html_e('Service → Packages', 'frm-easypost'); ?></th>
+                <th style="width:70%"><?php esc_html_e('Carrier → Services', 'frm-easypost'); ?></th>
                 <th style="width:5%"><?php esc_html_e('Actions', 'frm-easypost'); ?></th>
             </tr>
             </thead>
@@ -1271,28 +1275,28 @@ final class FrmEasypostAdminSettings {
                         <table class="frm-easypost-table frm-pt-inner" style="margin:0;" data-inner>
                             <thead>
                             <tr>
-                                <th style="width:35%"><?php esc_html_e('Service', 'frm-easypost'); ?></th>
-                                <th style="width:60%"><?php esc_html_e('Packages (comma-separated)', 'frm-easypost'); ?></th>
+                                <th style="width:35%"><?php esc_html_e('Carrier', 'frm-easypost'); ?></th>
+                                <th style="width:60%"><?php esc_html_e('Services (comma-separated)', 'frm-easypost'); ?></th>
                                 <th style="width:5%"></th>
                             </tr>
                             </thead>
                             <tbody>
                             <?php foreach ($rules as $j => $r):
-                                $service = (string)($r['service'] ?? '');
-                                $pkgs    = (string)($r['packages'] ?? '');
+                                $carrier = (string)($r['carrier'] ?? '');
+                                $services    = (string)($r['services'] ?? '');
                             ?>
                                 <tr>
                                     <td>
                                         <input type="text" class="regular-text1"
-                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][service]"
-                                               value="<?php echo esc_attr($service); ?>"
-                                               placeholder="Priority, Express..." />
+                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][carrier]"
+                                               value="<?php echo esc_attr($carrier); ?>"
+                                               placeholder="USPS" />
                                     </td>
                                     <td>
                                         <input type="text" class="regular-text"
-                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][packages]"
-                                               value="<?php echo esc_attr($pkgs); ?>"
-                                               placeholder="FlatRateEnvelope, Parcel..." />
+                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][services]"
+                                               value="<?php echo esc_attr($services); ?>"
+                                               placeholder="Express, Priority..." />
                                     </td>
                                     <td>
                                         <button type="button" class="button link-delete-inner" aria-label="<?php esc_attr_e('Delete rule','frm-easypost'); ?>">✕</button>
