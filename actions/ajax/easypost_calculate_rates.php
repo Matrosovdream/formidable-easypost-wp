@@ -11,7 +11,7 @@ function ep_ajax_easypost_calculate_rates() {
     if (!is_array($decoded)) wp_send_json_error(['message' => 'Invalid payload.']);
 
     // Get entry data and user email (if available)
-    $entry = FrmEntry::getOne( $decoded['entry_id'] );
+    $entry = FrmEntry::getOne( $decoded['entry_id'], true );
     if( isset( $entry->user_id ) && $entry->user_id ) {
       $user = get_user_by( 'id', $entry->user_id );
     }
@@ -60,6 +60,25 @@ function ep_ajax_easypost_calculate_rates() {
       $carrierHelper   = new FrmEasypostCarrierHelper();
       $carrierAccounts = $carrierHelper->getCarrierAccounts();
 
+      $settingsHelper = new FrmEasypostSettingsHelper();
+      $processingTimeRules = $settingsHelper->getProcessingTimeRules();
+
+      // Filters accounts based on processing time rules
+      $rulesSetFinal = [];
+      foreach( $processingTimeRules as $fieldId => $rules ) {
+
+          $procTimeValue = FrmEntryMeta::get_entry_meta_by_field( $entry->id, $fieldId, true );
+
+          foreach( $rules as $rule ) {
+              
+            if( $rule['field_value'] == $procTimeValue ) {
+                $rulesSetFinal = $rule['rules'];
+            }
+
+          }
+
+      }
+
       $addresses = [
         "from_address" => $labelData['from_address'],
         "to_address"   => $labelData['to_address'],
@@ -100,6 +119,25 @@ function ep_ajax_easypost_calculate_rates() {
                   $rates[] = $rate;
               }
           }
+      }
+
+      // Exclude rates based on processing time rules
+      if( ! empty( $rulesSetFinal ) ) {
+          $ratesFiltered = [];
+          foreach( $rates as $rate ) {
+
+            $carrier = trim( strtolower($rate['carrier'] ) );
+            if( isset( $rulesSetFinal[ $carrier ] ) ) {
+                $allowedServices = $rulesSetFinal[ $carrier ]['services'];
+                if( empty( $allowedServices ) || in_array( strtolower($rate['service']), $allowedServices ) ) {
+                    $ratesFiltered[] = $rate;
+                }
+            } else {
+                $ratesFiltered[] = $rate;
+            }
+        }
+            
+        $rates = $ratesFiltered;
       }
 
       $data = [
