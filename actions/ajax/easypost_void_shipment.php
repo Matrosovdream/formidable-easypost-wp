@@ -26,7 +26,7 @@ function easyspot_ajax_void_shipment() {
              * Fires right after a shipment is voided.
              *
              */
-            do_action('frm_easypost_label_voided', $label);
+            do_action('frm_easypost_label_voided', $label, $payload = ['shipment_id' => $easypost_id]);
 
             wp_send_json_success($label);
         } else {
