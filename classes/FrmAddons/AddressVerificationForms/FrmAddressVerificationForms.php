@@ -452,45 +452,42 @@ final class FrmPoBoxAutoCheck {
         <script>
         (function($){
             $(function(){
-
-                var ADDR_SELECTOR = '[name="item_meta[37]"]';
-                var CHECKBOX_SELECTOR = '[name="item_meta[42][]"]';
-                var POBOX_REGEX = /\bP\.?\s*O\.?\s*Box\b/i; // Matches PO Box, P.O Box, P.O. Box (case-insensitive)
-
-                function toggleCheckboxBasedOnAddress() {
-                    var $addr = $(ADDR_SELECTOR);
-                    var $cbs  = $(CHECKBOX_SELECTOR);
-                    if (!$addr.length || !$cbs.length) return;
-
-                    var val = $addr.val() || '';
-                    var match = POBOX_REGEX.test(val);
-
-                    $cbs.each(function(){
-                        var $cb = $(this);
-                        if (match && !this.checked) {
-                            this.checked = true;
-                            $cb.trigger('change');
-                        } else if (!match && this.checked) {
-                            this.checked = false;
-                            $cb.trigger('change');
-                        }
-                    });
+        
+                const ADDR_SELECTOR = '[name="item_meta[37]"]';
+                const CHECKBOX_SELECTOR = '[name="item_meta[42][]"]';
+                const POBOX_REGEX = /\bP\.?\s*O\.?\s*Box\b/i;
+        
+                function autoCheckPoBox() {
+                    const $addr = $(ADDR_SELECTOR);
+                    if (!$addr.length) return;
+        
+                    const val = $addr.val() || '';
+                    if (!POBOX_REGEX.test(val)) return;
+        
+                    // Just the first checkbox
+                    const $cb = $(CHECKBOX_SELECTOR).first();
+                    if ($cb.length && !$cb.prop('checked')) {
+                        $cb.prop('checked', true);
+                        $cb.trigger('change');
+                    }
                 }
-
-                // Initial check on load
-                toggleCheckboxBasedOnAddress();
+        
+                // initial
+                autoCheckPoBox();
 
                 // Re-check on input or change
-                $(document).on('input change blur', ADDR_SELECTOR, toggleCheckboxBasedOnAddress);
-
-                // Handle dynamically loaded fields (Formidable AJAX)
-                $(document).ajaxComplete(toggleCheckboxBasedOnAddress);
-
+                $(document).on('input change blur', ADDR_SELECTOR, autoCheckPoBox);
+        
+                // only on input
+                $(document).on('input', ADDR_SELECTOR, autoCheckPoBox);
+        
             });
         })(jQuery);
         </script>
         <?php
     }
+        
+
 }
 
 FrmPoBoxAutoCheck::init();
