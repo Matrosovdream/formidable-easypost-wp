@@ -31,9 +31,7 @@ function ep_short_easypost_label_button($atts) {
  */
 function ep_short_easypost_label_popup($atts) {
     static $rendered = false;
-    if ($rendered) {
-        return '';
-    }
+    if ($rendered) return '';
     $rendered = true;
 
     // Prefill label message defaults from options
@@ -66,7 +64,6 @@ function ep_short_easypost_label_popup($atts) {
         ],
     ]);
 
-    // ---------- HTML ----------
     ob_start(); ?>
     <div id="ep-ep-modal" aria-hidden="true">
       <div id="ep-ep-dialog" role="dialog" aria-modal="true" aria-labelledby="ep-ep-title">
@@ -158,6 +155,22 @@ function ep_short_easypost_label_popup($atts) {
               </div>
             </div>
 
+            <!-- Ready routes (FULL WIDTH) -->
+            <div class="ep-group ep-group-full" style="grid-column: 1 / -1; width:100%;">
+              <div class="ep-legend-wrap">
+                <div class="ep-legend">Ready routes</div>
+              </div>
+
+              <div class="ep-row-1" style="width:100%;">
+                <div class="ep-field" style="width:100%;">
+                  <label for="ep-ready-routes">Ready routes (saved address pairs)</label>
+                  <select id="ep-ready-routes" style="width:100%;">
+                    <option value="">No routes yet</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <!-- Parcel -->
             <div class="ep-group">
               <div class="ep-legend-wrap"><div class="ep-legend">Parcel</div></div>
@@ -233,54 +246,229 @@ function ep_short_easypost_label_popup($atts) {
       </div>
     </div>
 
-    <!-- Inline JS: jQuery UI datepicker + date tags + ISO helper -->
+    <style>
+      /* Red connector arrow inside the select label (purely visual in option text) */
+      .ep-route-arrow { color:#c00; font-weight:700; }
+    </style>
+
+    <!-- Inline JS: Ready routes filler + selection -> fill From/To + trigger Calculate + datepicker -->
     <script>
     jQuery(function($) {
-        var $dateInput = $('#ep-label-date');
+        var $dateInput    = $('#ep-label-date');
+        var $routesSelect = $('#ep-ready-routes');
 
-        // Init jQuery UI datepicker, format mm/dd/yyyy, min tomorrow
-        if ($dateInput.length) {
-            $dateInput.datepicker({
-                dateFormat: 'mm/dd/yy', // shows as mm/dd/yyyy
-                minDate: 1 // tomorrow
+        // cache addresses for current entry (so on change we can fill instantly)
+        var epAddrCache = [];
+
+        function epEsc(s) {
+            return (s == null ? '' : String(s)).replace(/[&<>"']/g, function(m) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]);
             });
         }
 
-        // Global helper: convert mm/dd/yyyy -> yyyy-mm-dd for AJAX
-        window.epGetLabelDateIso = function() {
-            var v = $dateInput.val() ? $dateInput.val().trim() : '';
-            if (!v) {
-                return '';
+        function epComposeAddress(a) {
+            var parts = [];
+            if (a.name)    parts.push(a.name);
+            if (a.street1) parts.push(a.street1);
+            if (a.street2) parts.push(a.street2);
+            var cityLine = [];
+            if (a.city)  cityLine.push(a.city);
+            if (a.state) cityLine.push(a.state);
+            if (a.zip)   cityLine.push(a.zip);
+            if (cityLine.length) parts.push(cityLine.join(', '));
+            if (a.country) parts.push(a.country);
+            return parts.join(' — ');
+        }
+
+        function epBuildReadyRoutes(addresses) {
+            var userIdx = [];
+            var otherIdx = [];
+
+            for (var i = 0; i < addresses.length; i++) {
+                if (addresses[i] && addresses[i].is_user_address) userIdx.push(i);
+                else otherIdx.push(i);
             }
 
-            var parts = v.split('/');
-            if (parts.length !== 3) {
-                return v; // fallback if unexpected
+            var routes = [];
+            for (var ui = 0; ui < userIdx.length; ui++) {
+                for (var oi = 0; oi < otherIdx.length; oi++) {
+                    routes.push([ userIdx[ui], otherIdx[oi] ]);
+                    routes.push([ otherIdx[oi], userIdx[ui] ]);
+                }
             }
+            return routes;
+        }
+
+        function epSetBlock(prefix, a) {
+            if (!a) return;
+
+            $('#ep-' + prefix + '-name').val(a.name || '');
+            $('#ep-' + prefix + '-phone').val(a.phone || '');
+            $('#ep-' + prefix + '-street1').val(a.street1 || '');
+            $('#ep-' + prefix + '-street2').val(a.street2 || '');
+            $('#ep-' + prefix + '-city').val(a.city || '');
+            $('#ep-' + prefix + '-state').val(a.state || '');
+            $('#ep-' + prefix + '-zip').val(a.zip || '');
+
+            // Try to select the same item in "Saved Addresses" select (best-effort by zip)
+            var $sel = $('#ep-' + prefix + '-select');
+            if ($sel.length && a.zip) {
+                var found = false;
+                $sel.find('option').each(function() {
+                    var v = $(this).val();
+                    if (v && String(v).indexOf(String(a.zip)) !== -1) { // loose matching
+                        $sel.val(v);
+                        found = true;
+                        return false;
+                    }
+                });
+                if (found) {
+                    // notify any listeners in your existing popup JS
+                    $sel.trigger('change');
+                }
+            }
+
+            // Notify any listeners bound to the inputs
+            $('#ep-' + prefix + '-name, #ep-' + prefix + '-phone, #ep-' + prefix + '-street1, #ep-' + prefix + '-street2, #ep-' + prefix + '-city, #ep-' + prefix + '-state, #ep-' + prefix + '-zip')
+              .trigger('change')
+              .trigger('input');
+        }
+
+        function epTriggerCalculateSoon() {
+            setTimeout(function() {
+                var $btn = $('#ep-ep-calc');
+                if ($btn.length) {
+                    $btn.trigger('click');
+                }
+            }, 500);
+        }
+
+        // Load addresses + build ready routes when opening
+        $(document).on('click', '.ep-open-easypost', function() {
+            var entryId = parseInt($(this).data('entry-id'), 10);
+            if (!entryId) return;
+
+            // reset cache + select
+            epAddrCache = [];
+            if ($routesSelect.length) {
+                $routesSelect.prop('disabled', true);
+                $routesSelect.empty().append('<option value="">Loading routes…</option>');
+            }
+
+            $.ajax({
+                url: (window.epPopup && epPopup.ajaxUrl) ? epPopup.ajaxUrl : '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'easypost_get_entry_addresses',
+                    entry_id: entryId,
+                    _ajax_nonce: (window.epPopup && epPopup.nonce) ? epPopup.nonce : ''
+                }
+            }).done(function(res) {
+                var addrs = (res && res.success && res.data && Array.isArray(res.data.addresses)) ? res.data.addresses : [];
+                epAddrCache = addrs;
+
+                if (!$routesSelect.length) return;
+
+                if (!addrs.length) {
+                    $routesSelect.prop('disabled', false);
+                    $routesSelect.empty().append('<option value="">No routes (no addresses)</option>');
+                    return;
+                }
+
+                var pairs = epBuildReadyRoutes(addrs);
+
+                if (!pairs.length) {
+                    $routesSelect.prop('disabled', false);
+                    $routesSelect.empty().append('<option value="">No ready routes</option>');
+                    return;
+                }
+
+                // Option labels: "addr1    --->    addr2" (arrow red via HTML in label; note: some browsers ignore HTML in <option>)
+                // We also keep a plain-text fallback that looks good everywhere.
+                var opts = ['<option value="">Choose a ready route…</option>'];
+                for (var p = 0; p < pairs.length; p++) {
+                    var a = addrs[pairs[p][0]];
+                    var b = addrs[pairs[p][1]];
+                    if (!a || !b) continue;
+
+                    var left  = epComposeAddress(a);
+                    var right = epComposeAddress(b);
+
+                    var labelPlain = left + '    --->    ' + right;
+                    var val = pairs[p][0] + ',' + pairs[p][1];
+
+                    opts.push('<option value="' + epEsc(val) + '">' + epEsc(labelPlain) + '</option>');
+                }
+
+                $routesSelect.html(opts.join(''));
+                $routesSelect.prop('disabled', false);
+            }).fail(function() {
+                if ($routesSelect.length) {
+                    $routesSelect.prop('disabled', false);
+                    $routesSelect.empty().append('<option value="">Failed to load routes</option>');
+                }
+            });
+        });
+
+        // On Ready routes change:
+        // 1) fill From/To blocks
+        // 2) trigger Calculate after 0.5s
+        $(document).on('change', '#ep-ready-routes', function() {
+            var v = $(this).val() ? String($(this).val()).trim() : '';
+            if (!v) return;
+
+            var parts = v.split(',');
+            if (parts.length !== 2) return;
+
+            var fromIdx = parseInt(parts[0], 10);
+            var toIdx   = parseInt(parts[1], 10);
+
+            if (!Array.isArray(epAddrCache) || !epAddrCache.length) return;
+            if (isNaN(fromIdx) || isNaN(toIdx)) return;
+
+            var fromA = epAddrCache[fromIdx];
+            var toA   = epAddrCache[toIdx];
+
+            epSetBlock('from', fromA);
+            epSetBlock('to', toA);
+
+            epTriggerCalculateSoon();
+        });
+
+        // Datepicker
+        if ($dateInput.length) {
+            $dateInput.datepicker({
+                dateFormat: 'mm/dd/yy',
+                minDate: 1
+            });
+        }
+
+        window.epGetLabelDateIso = function() {
+            var v = $dateInput.val() ? $dateInput.val().trim() : '';
+            if (!v) return '';
+
+            var parts = v.split('/');
+            if (parts.length !== 3) return v;
 
             var mm = parts[0].padStart(2, '0');
             var dd = parts[1].padStart(2, '0');
             var yyyy = parts[2];
 
-            return yyyy + '-' + mm + '-' + dd; // YYYY-MM-DD
+            return yyyy + '-' + mm + '-' + dd;
         };
 
-        // Date tags: 0..10
         $('.ep-date-tag').on('click', function() {
             if (!$dateInput.length) return;
 
             var add = parseInt($(this).data('add'), 10);
-            if (isNaN(add)) {
-                add = 0;
-            }
+            if (isNaN(add)) add = 0;
 
-            // If 0 clicked → clear date
             if (add === 0) {
                 $dateInput.val('');
                 return;
             }
 
-            // For 1..10 → today + N days
             var d = new Date();
             d.setHours(0,0,0,0);
             d.setDate(d.getDate() + add);
