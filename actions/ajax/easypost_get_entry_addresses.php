@@ -89,10 +89,34 @@ function ep_ajax_easypost_get_entry_addresses() {
                   'country'    => sanitize_text_field($a['country'] ?? 'US'),
                   'phone'      => sanitize_text_field($a['phone']   ?? ''),
                   'proc_time'  => sanitize_text_field($a['proc_time'] ?? ''),
+                  'is_user_address' => !empty($a['is_user_address']) ? true : false,
                   'Selected'   => false, // default false
               ];
           }
       }
+
+        // Prepare ready_routes from $out, based on is_user_address and all pairs, and reversed
+        $user_indexes = [];
+        $other_indexes = [];
+
+        foreach ($out as $idx => $row) {
+            if (!empty($row['is_user_address'])) {
+                $user_indexes[] = (int) $idx;
+            } else {
+                $other_indexes[] = (int) $idx;
+            }
+        }
+
+        // Build pairs: user -> other, and reversed other -> user
+        $ready_routes = [];
+        foreach ($user_indexes as $u) {
+            foreach ($other_indexes as $o) {
+                $ready_routes[] = [ $u, $o ];
+                $ready_routes[] = [ $o, $u ];
+            }
+        }
+
+
 
       // If we picked a specific address, override selection by matching ZIP
       if ($selectedAddress && !empty($out)) {
@@ -104,7 +128,7 @@ function ep_ajax_easypost_get_entry_addresses() {
           }
       }
 
-      wp_send_json_success(['addresses' => $out]);
+      wp_send_json_success(['addresses' => $out, 'ready_routes' => $ready_routes]);
   } catch (Throwable $e) {
       wp_send_json_error(['message' => 'Fetch error: ' . $e->getMessage()]);
   }
