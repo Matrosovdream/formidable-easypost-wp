@@ -59,7 +59,8 @@ class FrmEasypostEntryHelper {
 
         $entry = \FrmEntry::getOne($entry_id, true);
         if (!$entry) {
-            return '<div class="ep-entry-error">Entry not found for ID #' . esc_html((string)$entry_id) . '.</div>';
+            //return '<div class="ep-entry-error">Entry not found for ID #' . esc_html((string)$entry_id) . '.</div>';
+            return [];
         }
 
         $entry_metas = is_array($entry->metas ?? null) ? $entry->metas : [];
@@ -72,13 +73,7 @@ class FrmEasypostEntryHelper {
         $fieldValues['name'] = trim(($fieldValues['firstname'] ?? '') . ' ' . ($fieldValues['lastname'] ?? ''));
 
         $fieldValues['country'] = 'US';
-
-        /*
-        echo '<pre>';
-        print_r($fieldValues);  
-        echo '</pre>';
-        die();
-        */
+        $fieldValues['is_user_address'] = true;
 
         return [$fieldValues];
 
