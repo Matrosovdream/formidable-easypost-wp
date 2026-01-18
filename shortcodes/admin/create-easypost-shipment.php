@@ -155,18 +155,22 @@ function ep_short_easypost_label_popup($atts) {
               </div>
             </div>
 
-            <!-- Ready routes (FULL WIDTH) -->
+            <!-- Extra actions -->
             <div class="ep-group ep-group-full" style="grid-column: 1 / -1; width:100%;">
               <div class="ep-legend-wrap">
-                <div class="ep-legend">Ready routes</div>
+                <div class="ep-legend">Extra actions</div>
               </div>
 
               <div class="ep-row-1" style="width:100%;">
-                <div class="ep-field" style="width:100%;">
-                  <label for="ep-ready-routes">Ready routes (saved address pairs)</label>
-                  <select id="ep-ready-routes" style="width:100%;">
-                    <option value="">No routes yet</option>
-                  </select>
+                <div class="ep-field" style="width:100%; display:flex; gap:12px; align-items:flex-start;">
+                  <div>
+                    <button id="ep-fill-closest" class="ep-btn ep-btn-primary" type="button" disabled>
+                      National Passport
+                    </button>
+                    <button id="ep-fill-passport-service" class="ep-btn ep-btn-primary" type="button" disabled>
+                      Service/Client
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -246,58 +250,16 @@ function ep_short_easypost_label_popup($atts) {
       </div>
     </div>
 
-    <style>
-      /* Red connector arrow inside the select label (purely visual in option text) */
-      .ep-route-arrow { color:#c00; font-weight:700; }
-    </style>
-
-    <!-- Inline JS: Ready routes filler + selection -> fill From/To + trigger Calculate + datepicker -->
+    <!-- Inline JS: closest/passport buttons enable + click -> fill + calc; datepicker unchanged -->
     <script>
     jQuery(function($) {
-        var $dateInput    = $('#ep-label-date');
-        var $routesSelect = $('#ep-ready-routes');
+        var $dateInput          = $('#ep-label-date');
+        var $closestBtn         = $('#ep-fill-closest');
+        var $passportServiceBtn = $('#ep-fill-passport-service');
 
-        // cache addresses for current entry (so on change we can fill instantly)
-        var epAddrCache = [];
-
-        function epEsc(s) {
-            return (s == null ? '' : String(s)).replace(/[&<>"']/g, function(m) {
-                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]);
-            });
-        }
-
-        function epComposeAddress(a) {
-            var parts = [];
-            if (a.name)    parts.push(a.name);
-            if (a.street1) parts.push(a.street1);
-            if (a.street2) parts.push(a.street2);
-            var cityLine = [];
-            if (a.city)  cityLine.push(a.city);
-            if (a.state) cityLine.push(a.state);
-            if (a.zip)   cityLine.push(a.zip);
-            if (cityLine.length) parts.push(cityLine.join(', '));
-            if (a.country) parts.push(a.country);
-            return parts.join(' — ');
-        }
-
-        function epBuildReadyRoutes(addresses) {
-            var userIdx = [];
-            var otherIdx = [];
-
-            for (var i = 0; i < addresses.length; i++) {
-                if (addresses[i] && addresses[i].is_user_address) userIdx.push(i);
-                else otherIdx.push(i);
-            }
-
-            var routes = [];
-            for (var ui = 0; ui < userIdx.length; ui++) {
-                for (var oi = 0; oi < otherIdx.length; oi++) {
-                    routes.push([ userIdx[ui], otherIdx[oi] ]);
-                    routes.push([ otherIdx[oi], userIdx[ui] ]);
-                }
-            }
-            return routes;
-        }
+        var epClosestAddress    = null;
+        var epEntryAddress      = null;
+        var epPassportService   = null;
 
         function epSetBlock(prefix, a) {
             if (!a) return;
@@ -316,16 +278,13 @@ function ep_short_easypost_label_popup($atts) {
                 var found = false;
                 $sel.find('option').each(function() {
                     var v = $(this).val();
-                    if (v && String(v).indexOf(String(a.zip)) !== -1) { // loose matching
+                    if (v && String(v).indexOf(String(a.zip)) !== -1) {
                         $sel.val(v);
                         found = true;
                         return false;
                     }
                 });
-                if (found) {
-                    // notify any listeners in your existing popup JS
-                    $sel.trigger('change');
-                }
+                if (found) $sel.trigger('change');
             }
 
             // Notify any listeners bound to the inputs
@@ -337,23 +296,35 @@ function ep_short_easypost_label_popup($atts) {
         function epTriggerCalculateSoon() {
             setTimeout(function() {
                 var $btn = $('#ep-ep-calc');
-                if ($btn.length) {
-                    $btn.trigger('click');
-                }
+                if ($btn.length) $btn.trigger('click');
             }, 500);
         }
 
-        // Load addresses + build ready routes when opening
+        function epUpdateExtraButtonsState() {
+            var hasClosest  = !!(epClosestAddress && (epClosestAddress.street1 || epClosestAddress.zip || epClosestAddress.name));
+            var hasEntry    = !!(epEntryAddress && (epEntryAddress.street1 || epEntryAddress.zip || epEntryAddress.name));
+            var hasPassport = !!(epPassportService && (epPassportService.street1 || epPassportService.zip || epPassportService.name));
+
+            // Closest: needs closest + entry
+            if ($closestBtn.length) {
+                $closestBtn.prop('disabled', !(hasClosest && hasEntry));
+            }
+
+            // Passport service: needs passport_service + entry
+            if ($passportServiceBtn.length) {
+                $passportServiceBtn.prop('disabled', !(hasPassport && hasEntry));
+            }
+        }
+
+        // When opening popup: fetch new shape + enable/disable the buttons
         $(document).on('click', '.ep-open-easypost', function() {
             var entryId = parseInt($(this).data('entry-id'), 10);
             if (!entryId) return;
 
-            // reset cache + select
-            epAddrCache = [];
-            if ($routesSelect.length) {
-                $routesSelect.prop('disabled', true);
-                $routesSelect.empty().append('<option value="">Loading routes…</option>');
-            }
+            epClosestAddress  = null;
+            epEntryAddress    = null;
+            epPassportService = null;
+            epUpdateExtraButtonsState();
 
             $.ajax({
                 url: (window.epPopup && epPopup.ajaxUrl) ? epPopup.ajaxUrl : '<?php echo esc_js(admin_url('admin-ajax.php')); ?>',
@@ -365,78 +336,50 @@ function ep_short_easypost_label_popup($atts) {
                     _ajax_nonce: (window.epPopup && epPopup.nonce) ? epPopup.nonce : ''
                 }
             }).done(function(res) {
-                var addrs = (res && res.success && res.data && Array.isArray(res.data.addresses)) ? res.data.addresses : [];
-                epAddrCache = addrs;
+                var data = (res && res.success && res.data) ? res.data : {};
 
-                if (!$routesSelect.length) return;
+                epClosestAddress  = (data && data.closest_address) ? data.closest_address : null;
+                epEntryAddress    = (data && data.entry_address) ? data.entry_address : null;
+                epPassportService = (data && data.passport_service) ? data.passport_service : null;
 
-                if (!addrs.length) {
-                    $routesSelect.prop('disabled', false);
-                    $routesSelect.empty().append('<option value="">No routes (no addresses)</option>');
-                    return;
-                }
-
-                var pairs = epBuildReadyRoutes(addrs);
-
-                if (!pairs.length) {
-                    $routesSelect.prop('disabled', false);
-                    $routesSelect.empty().append('<option value="">No ready routes</option>');
-                    return;
-                }
-
-                // Option labels: "addr1    --->    addr2" (arrow red via HTML in label; note: some browsers ignore HTML in <option>)
-                // We also keep a plain-text fallback that looks good everywhere.
-                var opts = ['<option value="">Choose a ready route…</option>'];
-                for (var p = 0; p < pairs.length; p++) {
-                    var a = addrs[pairs[p][0]];
-                    var b = addrs[pairs[p][1]];
-                    if (!a || !b) continue;
-
-                    var left  = epComposeAddress(a);
-                    var right = epComposeAddress(b);
-
-                    var labelPlain = left + '    --->    ' + right;
-                    var val = pairs[p][0] + ',' + pairs[p][1];
-
-                    opts.push('<option value="' + epEsc(val) + '">' + epEsc(labelPlain) + '</option>');
-                }
-
-                $routesSelect.html(opts.join(''));
-                $routesSelect.prop('disabled', false);
+                epUpdateExtraButtonsState();
             }).fail(function() {
-                if ($routesSelect.length) {
-                    $routesSelect.prop('disabled', false);
-                    $routesSelect.empty().append('<option value="">Failed to load routes</option>');
-                }
+                epClosestAddress  = null;
+                epEntryAddress    = null;
+                epPassportService = null;
+                epUpdateExtraButtonsState();
             });
         });
 
-        // On Ready routes change:
-        // 1) fill From/To blocks
-        // 2) trigger Calculate after 0.5s
-        $(document).on('change', '#ep-ready-routes', function() {
-            var v = $(this).val() ? String($(this).val()).trim() : '';
-            if (!v) return;
+        // Closest button:
+        // 1) From = entry_address
+        // 2) To   = closest_address
+        // 3) Calculate after 0.5s
+        $(document).on('click', '#ep-fill-closest', function() {
+            if (!$closestBtn.length || $closestBtn.prop('disabled')) return;
+            if (!epEntryAddress || !epClosestAddress) return;
 
-            var parts = v.split(',');
-            if (parts.length !== 2) return;
-
-            var fromIdx = parseInt(parts[0], 10);
-            var toIdx   = parseInt(parts[1], 10);
-
-            if (!Array.isArray(epAddrCache) || !epAddrCache.length) return;
-            if (isNaN(fromIdx) || isNaN(toIdx)) return;
-
-            var fromA = epAddrCache[fromIdx];
-            var toA   = epAddrCache[toIdx];
-
-            epSetBlock('from', fromA);
-            epSetBlock('to', toA);
+            epSetBlock('from', epEntryAddress);
+            epSetBlock('to', epClosestAddress);
 
             epTriggerCalculateSoon();
         });
 
-        // Datepicker
+        // Passport service button:
+        // 1) From = passport_service
+        // 2) To   = entry_address
+        // 3) Calculate after 0.5s
+        $(document).on('click', '#ep-fill-passport-service', function() {
+            if (!$passportServiceBtn.length || $passportServiceBtn.prop('disabled')) return;
+            if (!epPassportService || !epEntryAddress) return;
+
+            epSetBlock('from', epPassportService);
+            epSetBlock('to', epEntryAddress);
+
+            epTriggerCalculateSoon();
+        });
+
+        // Datepicker (unchanged)
         if ($dateInput.length) {
             $dateInput.datepicker({
                 dateFormat: 'mm/dd/yy',

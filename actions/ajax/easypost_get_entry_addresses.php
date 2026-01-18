@@ -28,10 +28,10 @@ function ep_ajax_easypost_get_entry_addresses() {
       $addresses = $model->getEntryAddresses($entry_id);
 
       $procTimes = [
-          145 => 'Standard',
-          195 => 'Expedited',
-          150 => 'Rushed',
-      ];
+        145 => 'Standard',
+        175 => 'Expedited',
+        375 => 'Rushed',
+    ];
 
       $entryMetas  = $model->getEntryMetas($entry_id);
       $procTimeId  = isset($entryMetas[211]) ? $entryMetas[211] : '';
@@ -116,19 +116,57 @@ function ep_ajax_easypost_get_entry_addresses() {
             }
         }
 
-
-
       // If we picked a specific address, override selection by matching ZIP
       if ($selectedAddress && !empty($out)) {
           foreach ($out as $k => $row) {
-              if (($row['zip'] ?? '') !== '' && ($row['zip'] === ($selectedAddress['zip'] ?? ''))) {
-                  $out[$k]['Selected'] = true;
-                  break;
-              }
+
+            if( $row['is_user_address'] ) { continue; }
+
+            if (($row['zip'] ?? '') !== '' && ($row['zip'] === ($selectedAddress['zip'] ?? ''))) {
+                $out[$k]['Selected'] = true;
+                break;
+            }
           }
       }
 
-      wp_send_json_success(['addresses' => $out, 'ready_routes' => $ready_routes]);
+      // Let's find closest match by ZIP and proc_time
+      $closestAddress = null;
+      foreach ($out as $k => $row) {
+          if (
+              $row['Selected'] === true
+          ) {
+              $closestAddress = $row;
+          }
+      }
+
+    // Where is_user_address true address?
+    $entryAddress = null;
+    foreach ($out as $row) {
+        if (!empty($row['is_user_address'])) {
+            $entryAddress = $row;
+            break;;
+        }    
+    }  
+
+    // Passport service, find in name the word "Passport Service"
+    $passportServiceAddress = null;
+    foreach ($out as $row) {
+        if (stripos($row['name'], 'Passport Service') !== false) {
+            $passportServiceAddress = $row;
+            break;;
+        }    
+    }
+
+    $data = [
+        'addresses' => $out, 
+        'closest_address' => $closestAddress, 
+        'entry_address' => $entryAddress,
+        'passport_service' => $passportServiceAddress,
+        'ready_routes' => $ready_routes
+    ];
+
+    wp_send_json_success($data);
+
   } catch (Throwable $e) {
       wp_send_json_error(['message' => 'Fetch error: ' . $e->getMessage()]);
   }

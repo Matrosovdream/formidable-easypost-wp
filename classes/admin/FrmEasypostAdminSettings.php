@@ -519,7 +519,17 @@ final class FrmEasypostAdminSettings {
                 const tmpl = `
                 <tr>
                     <td><input type="text" class="regular-text2" name="${opt}[processing_time_rules][${i}][rules][${j}][carrier]" value="" placeholder="USPS" /></td>
+
                     <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][${j}][services]" value="" placeholder="Priority, Express..." /></td>
+
+                    <td>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="time" name="${opt}[processing_time_rules][${i}][rules][${j}][from]" value="" step="60" />
+                            <span style="opacity:.7;">→</span>
+                            <input type="time" name="${opt}[processing_time_rules][${i}][rules][${j}][to]" value="" step="60" />
+                        </div>
+                    </td>
+
                     <td><button type="button" class="button link-delete-inner">✕</button></td>
                 </tr>`;
                 tbody.insertAdjacentHTML('beforeend', tmpl);
@@ -540,19 +550,26 @@ final class FrmEasypostAdminSettings {
                 <table class="frm-easypost-table frm-pt-inner" style="margin:0;" data-inner>
                     <thead>
                     <tr>
-                        <th style="width:35%">Carrier</th>
-                        <th style="width:60%">Services (comma-separated)</th>
+                        <th style="width:25%">Carrier</th>
+                        <th style="width:40%">Services (comma-separated)</th>
+                        <th style="width:30%">Allowed hours</th>
                         <th style="width:5%"></th>
                     </tr>
                     </thead>
                     <tbody>
-
-
-
-
                     <tr>
                         <td><input type="text" class="regular-text2" name="${opt}[processing_time_rules][${i}][rules][0][carrier]" value="" placeholder="USPS" /></td>
+
                         <td><input type="text" class="regular-text" name="${opt}[processing_time_rules][${i}][rules][0][services]" value="" placeholder="Priority, Express..." /></td>
+
+                        <td>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="time" name="${opt}[processing_time_rules][${i}][rules][0][from]" value="" step="60" />
+                                <span style="opacity:.7;">→</span>
+                                <input type="time" name="${opt}[processing_time_rules][${i}][rules][0][to]" value="" step="60" />
+                            </div>
+                        </td>
+
                         <td><button type="button" class="button link-delete-inner">✕</button></td>
                     </tr>
                     </tbody>
@@ -939,10 +956,15 @@ final class FrmEasypostAdminSettings {
                     $servicesList  = array_filter(array_map('trim', explode(',', $servicesCsv)));
                     $servicesNorm = implode(', ', array_map('sanitize_text_field', $servicesList));
 
-                    if ($carrier !== '' || $servicesNorm !== '') {
+                    $from = sanitize_text_field( (string)($r['from'] ?? '') );
+                    $to   = sanitize_text_field( (string)($r['to'] ?? '') );    
+
+                    if ($carrier !== '' || $servicesNorm !== '' || $from !== '' || $to !== '') {
                         $rulesOut[] = [
                             'carrier'   => $carrier,
-                            'services'  => $servicesNorm, // CSV
+                            'services'  => $servicesNorm,
+                            'from'      => $from, // "HH:MM"
+                            'to'        => $to,   // "HH:MM"
                         ];
                     }
                 }
@@ -1274,16 +1296,19 @@ final class FrmEasypostAdminSettings {
                     <td>
                         <table class="frm-easypost-table frm-pt-inner" style="margin:0;" data-inner>
                             <thead>
-                            <tr>
-                                <th style="width:35%"><?php esc_html_e('Carrier', 'frm-easypost'); ?></th>
-                                <th style="width:60%"><?php esc_html_e('Services (comma-separated)', 'frm-easypost'); ?></th>
-                                <th style="width:5%"></th>
-                            </tr>
+                                <tr>
+                                    <th style="width:25%"><?php esc_html_e('Carrier', 'frm-easypost'); ?></th>
+                                    <th style="width:40%"><?php esc_html_e('Services (comma-separated)', 'frm-easypost'); ?></th>
+                                    <th style="width:30%"><?php esc_html_e('Allowed hours', 'frm-easypost'); ?></th>
+                                    <th style="width:5%"></th>
+                                </tr>
                             </thead>
                             <tbody>
                             <?php foreach ($rules as $j => $r):
                                 $carrier = (string)($r['carrier'] ?? '');
                                 $services    = (string)($r['services'] ?? '');
+                                $from = (string)($r['from'] ?? '');
+                                $to   = (string)($r['to'] ?? '');
                             ?>
                                 <tr>
                                     <td>
@@ -1294,10 +1319,25 @@ final class FrmEasypostAdminSettings {
                                     </td>
                                     <td>
                                         <input type="text" class="regular-text"
-                                               name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][services]"
-                                               value="<?php echo esc_attr($services); ?>"
-                                               placeholder="Express, Priority..." />
+                                            name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][services]"
+                                            value="<?php echo esc_attr($services); ?>"
+                                            placeholder="Express, Priority..." />
                                     </td>
+
+                                    <td>
+                                        <div style="display:flex;gap:8px;align-items:center;">
+                                            <input type="time"
+                                                name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][from]"
+                                                value="<?php echo esc_attr($from); ?>"
+                                                step="60" />
+                                            <span style="opacity:.7;">→</span>
+                                            <input type="time"
+                                                name="<?php echo $opt; ?>[processing_time_rules][<?php echo (int)$i; ?>][rules][<?php echo (int)$j; ?>][to]"
+                                                value="<?php echo esc_attr($to); ?>"
+                                                step="60" />
+                                        </div>
+                                    </td>
+
                                     <td>
                                         <button type="button" class="button link-delete-inner" aria-label="<?php esc_attr_e('Delete rule','frm-easypost'); ?>">✕</button>
                                     </td>
