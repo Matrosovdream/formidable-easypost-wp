@@ -110,6 +110,9 @@ class FrmEasypostInit {
         // Shipment Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostShipmentHelper.php';
 
+        // Label helper
+        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostLabelHelper.php';
+
         // Entry Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostEntryHelper.php';
 
@@ -163,6 +166,9 @@ class FrmEasypostInit {
 
         // Shipments all
         require_once FRM_EAP_BASE_URL.'/shortcodes/admin/frm-shipments-all.php';
+
+        // Mass Buy Labels list
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/frm-easypost-labels-massbuy-list.php';
 
     }
 
