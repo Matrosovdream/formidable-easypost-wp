@@ -22,6 +22,9 @@ require_once 'references.php';
 // Initialize core
 require_once 'classes/FrmEasypostInit.php';
 
+// Mass labels extension
+require_once 'mass-labels-extension.php';
+
 
 
 
@@ -65,6 +68,28 @@ function FrmEasypostInit() {
         
         updateShipmentsApiCron();
         die();
+    }
+
+    if( isset( $_GET['get_mass_update'] ) ) {
+
+        $helper = new FrmEasypostLabelHelper();
+
+        $res = $helper->getMassUpdateEntries([
+            'page' => 1,
+            'per_page' => 20,
+            'photo' => ['mode' => 'without'],
+            'service' => [
+                'field_id' => 12,
+                'values' => ['New Passport','Child Passport','Damaged Passport','Lost Passport','Stolen Passport'],
+            ],
+        ]);
+
+        echo "<pre>";
+        print_r($res);
+        echo '</pre>';
+
+        exit();
+
     }
 
 }
