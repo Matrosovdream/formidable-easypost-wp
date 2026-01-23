@@ -2,8 +2,6 @@
 
 if ( ! defined('ABSPATH') ) { exit; }
 
-
-
 final class FrmEasypostLabelsMassbuyListShortcode {
 
     private const SHORTCODE = 'frm-easypost-labels-massbuy-list';
@@ -16,8 +14,10 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_PHOTO_DONE      = 670;
     private const FIELD_NATIONAL_TRACK  = 344;
     private const FIELD_PROCESSING_TIME = 211;
+    private const FIELD_MAILING_ADDRESS = 37;
 
     /** Processing time values (field 211) */
+    // Dev
     private const PT_STANDARD  = 145;
     private const PT_EXPEDITED = 195;
     private const PT_RUSH      = 395;
@@ -40,9 +40,20 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         'Second Passport',
     ];
 
+    /** AJAX */
+    private const AJAX_ACTION          = 'ffda_massbuy_labels_action';
+    private const AJAX_VERIFY_ADDRESS  = 'ffda_massbuy_entry_verify_address';
+    private const NONCE_KEY            = 'ffda_massbuy_labels_nonce';
+
     public static function init(): void {
         add_action('init', [__CLASS__, 'register_shortcode']);
         add_action('wp_enqueue_scripts', [__CLASS__, 'register_bootstrap_assets']);
+
+        // Mass actions (logged-in)
+        add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajax_handle_mass_action']);
+
+        // Verify address per entry (logged-in)
+        add_action('wp_ajax_' . self::AJAX_VERIFY_ADDRESS, [__CLASS__, 'ajax_verify_address_for_entry']);
     }
 
     public static function register_shortcode(): void {
@@ -100,6 +111,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $services = ($group === 'two') ? self::SERVICES_TWO_LABELS : self::SERVICES_ONE_LABEL;
 
         $helper = new FrmEasypostLabelHelper();
+        $entryHelper = new FrmEasypostEntryHelper();
 
         $args = [
             'page' => $page,
@@ -145,9 +157,13 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $total_pages = (int) ($pagination['total_pages'] ?? 0);
         $current_page = (int) ($pagination['current_page'] ?? $page);
 
+        // AJAX vars for JS
+        $ajax_url = admin_url('admin-ajax.php');
+        $nonce    = wp_create_nonce(self::NONCE_KEY);
+
         ob_start();
 
-        echo '<div class="ffda-massbuy-list">';
+        echo '<div class="ffda-massbuy-list" data-ajax-url="' . esc_attr($ajax_url) . '" data-ajax-nonce="' . esc_attr($nonce) . '">';
 
         self::render_filters([
             'photo' => $photo_mode,
@@ -174,10 +190,11 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<th style="width:48px;" class="text-center">';
         echo '<input type="checkbox" class="form-check-input" id="ffda_select_all" aria-label="Select all">';
         echo '</th>';
-        echo '<th style="width:90px;">Entry ID</th>';
+        echo '<th style="width:40px;">ID</th>';
         echo '<th style="width:180px;">Created</th>';
         echo '<th style="width:220px;">Service (12)</th>';
         echo '<th style="width:140px;">Photos</th>';
+        echo '<th style="width:200px;">Mailing address</th>';
         echo '<th style="width:180px;">Processing time</th>';
         echo '<th style="width:260px;">Tracking number (344)</th>';
         echo '<th style="width:110px;" class="text-end"></th>';
@@ -193,14 +210,14 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 $id = (int) $entry->id;
                 $created = isset($entry->created_at) ? (string) $entry->created_at : '';
-                // Format to 'Y-m-d H:i'
                 $created = $created !== '' ? date('Y-m-d H:i', strtotime($created)) : '';
 
                 $metas = isset($entry->metas) && is_array($entry->metas) ? $entry->metas : [];
 
-                $service_val = self::meta_val($metas, self::FIELD_SERVICE);
-                $track_344   = self::meta_val($metas, self::FIELD_NATIONAL_TRACK);
-                $proc_211    = self::meta_val($metas, self::FIELD_PROCESSING_TIME);
+                $service_val  = self::meta_val($metas, self::FIELD_SERVICE);
+                $track_344    = self::meta_val($metas, self::FIELD_NATIONAL_TRACK);
+                $proc_211     = self::meta_val($metas, self::FIELD_PROCESSING_TIME);
+                $mailing_addr = $entryHelper->getEntryAddressFields($id);
 
                 $photo_badge = ($photo_mode === 'with')
                     ? '<span class="badge text-bg-success">photo-done</span>'
@@ -213,7 +230,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 $order_url = home_url('/orders/entry/' . $id . '/?order=' . $id);
 
-                echo '<tr>';
+                echo '<tr data-entry-id="' . esc_attr((string)$id) . '">';
                 echo '<td class="text-center">';
                 echo '<input type="checkbox" class="form-check-input ffda-entry-check" name="ffda_entries[]" value="' . esc_attr((string)$id) . '" aria-label="Select entry ' . esc_attr((string)$id) . '">';
                 echo '</td>';
@@ -221,6 +238,10 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 echo '<td class="small">' . esc_html($created ?: '-') . '</td>';
                 echo '<td>' . esc_html($service_val ?: '-') . '</td>';
                 echo '<td>' . $photo_badge . '</td>';
+
+                // Mailing address cell (we add a class so JS can inject verify badge)
+                echo '<td class="ffda-mailing-addr-cell">' . esc_html($mailing_addr['combined'] ?: '-') . '</td>';
+
                 echo '<td>' . $proc_badge . '</td>';
                 echo '<td>' . esc_html($track_344 ?: '-') . '</td>';
                 echo '<td class="text-end"><a class="btn btn-outline-primary btn-sm" href="' . esc_url($order_url) . '" target="_blank" rel="noopener">Open</a></td>';
@@ -236,12 +257,10 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<div class="small">';
 
         echo '<div class="mb-2"><span class="badge text-bg-secondary me-2">DS11</span>';
-        //echo '<strong>One label</strong>: ';
         echo esc_html(implode(', ', self::SERVICES_ONE_LABEL));
         echo '</div>';
 
         echo '<div><span class="badge text-bg-secondary me-2">DS82</span>';
-        //echo '<strong>Two labels</strong>: ';
         echo esc_html(implode(', ', self::SERVICES_TWO_LABELS));
         echo '</div>';
 
@@ -251,18 +270,35 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</div>';
 
         self::render_selection_ui();
-
         self::render_pagination($current_page, $total_pages, [
             'photo' => $photo_mode,
             'group' => $group,
             'processing' => $processing,
         ]);
 
+        // Small CSS for verify badges
+        echo '<style>
+            .ep-verify-status {
+    font-size: 12px;
+    display: block;
+    width: fit-content;
+    border: 1px solid green;
+    border-radius: 4px;
+    padding: 3px;
+}
+            .ep-verify-status.ok{color:#0a7a2b}
+            .ep-verify-status.err{    color: #b00020;
+    border: 1px solid #b00020;}
+        </style>';
+
         echo '</div>';
 
         return (string) ob_get_clean();
     }
 
+    /**
+     * FILTERS + MASS ACTION BUTTONS (LEFT of Apply)
+     */
     private static function render_filters(array $state): void {
         $photo = $state['photo'] ?? 'without';
         $group = $state['group'] ?? 'one';
@@ -281,7 +317,6 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</select>';
         echo '</div>';
 
-        // Your changed group selector
         echo '<div class="col-12 col-md-4">';
         echo '<label class="form-label mb-1">Form type groups</label>';
         echo '<select class="form-select form-select-sm" name="group">';
@@ -290,22 +325,49 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</select>';
         echo '</div>';
 
-        // Processing time selector (values are 145/175/375)
         echo '<div class="col-12 col-md-4">';
         echo '<label class="form-label mb-1">Processing time (field 211)</label>';
         echo '<select class="form-select form-select-sm" name="processing">';
         echo '<option value="0"' . selected($processing, 0, false) . '>All</option>';
         echo '<option value="' . esc_attr((string) self::PT_STANDARD) . '"' . selected($processing, self::PT_STANDARD, false) . '>Standard (145)</option>';
-        echo '<option value="' . esc_attr((string) self::PT_EXPEDITED) . '"' . selected($processing, self::PT_EXPEDITED, false) . '>Expedited (175)</option>';
-        echo '<option value="' . esc_attr((string) self::PT_RUSH) . '"' . selected($processing, self::PT_RUSH, false) . '>Rush (375)</option>';
+        echo '<option value="' . esc_attr((string) self::PT_EXPEDITED) . '"' . selected($processing, self::PT_EXPEDITED, false) . '>Expedited (' . esc_html((string) self::PT_EXPEDITED) . ')</option>';
+        echo '<option value="' . esc_attr((string) self::PT_RUSH) . '"' . selected($processing, self::PT_RUSH, false) . '>Rush (' . esc_html((string) self::PT_RUSH) . ')</option>';
         echo '</select>';
         echo '</div>';
 
-        echo '<div class="col-12 text-end">';
+        // Buttons row: LEFT = carrier + actions, RIGHT = Apply
+        echo '<div class="col-12 d-flex flex-wrap justify-content-between align-items-end gap-2 mt-2">';
+
+        // LEFT controls
+        echo '<div class="d-flex flex-wrap align-items-end gap-2">';
+        echo '<div>';
+        echo '<label class="form-label mb-1">Select Carrier</label>';
+        echo '<select class="form-select form-select-sm" id="ffda_carrier_select" style="min-width:180px;">';
+        echo '<option value="fedex">FedEx</option>';
+        echo '<option value="usps">USPS</option>';
+        echo '</select>';
+        echo '</div>';
+
+        echo '<div class="d-flex flex-wrap gap-2 align-items-end" style="padding-top:22px;">';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="verify">Verify</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="calculate" disabled>Calculate</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="buy" disabled>Buy</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="print" disabled>Print</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="complete" disabled>Complete</button>';
+        echo '</div>';
+
+        echo '<div class="small" style="padding-top:22px;">';
+        echo '<span id="ffda_mass_action_status" class="text-success">Select entries to enable actions.</span>';
+        echo '</div>';
+
+        echo '</div>'; // left
+
+        // RIGHT Apply
+        echo '<div class="text-end">';
         echo '<button type="submit" class="btn btn-primary btn-lg">Apply</button>';
         echo '</div>';
 
-        echo '</div>';
+        echo '</div>'; // row
 
         // Preserve unknown query params
         foreach ($_GET as $k => $v) {
@@ -315,6 +377,247 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         }
 
         echo '</form>';
+
+        // JS: enable/disable mass buttons based on selection + AJAX handlers + sequential verify
+        echo '<script>
+        (function(){
+            function qs(sel, root){ return (root||document).querySelector(sel); }
+            function qsa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+
+            var wrap = qs(".ffda-massbuy-list");
+            if(!wrap){ return; }
+
+            function getSelectedIds(){
+                return qsa(".ffda-entry-check", wrap)
+                    .filter(function(cb){ return cb && cb.checked; })
+                    .map(function(cb){ return parseInt(cb.value, 10); })
+                    .filter(function(v){ return v && v > 0; });
+            }
+
+            var buttons = qsa(".ffda-mass-btn", wrap);
+            var carrierSel = qs("#ffda_carrier_select", wrap);
+            var statusEl = qs("#ffda_mass_action_status", wrap);
+
+            function setButtonsEnabled(enabled){
+                buttons.forEach(function(btn){
+                    var actionName = btn.getAttribute("data-ffda-action") || "";
+                    // Verify is allowed regardless of selection (your spec says: go through every row)
+                    if(actionName === "verify"){
+                        btn.disabled = false;
+                        return;
+                    }
+                    btn.disabled = !enabled;
+                });
+            }
+
+            function setStatus(msg, type){
+                if(!statusEl){ return; }
+                statusEl.textContent = msg || "";
+                statusEl.className = "";
+
+                // text color only
+                if(type === "ok"){ statusEl.classList.add("text-success"); }
+                else if(type === "err"){ statusEl.classList.add("text-danger"); }
+                else { statusEl.classList.add("text-success"); } // default green
+            }
+
+            function refresh(){
+                var ids = getSelectedIds();
+                setButtonsEnabled(ids.length > 0);
+                if(ids.length === 0){
+                    setStatus("Select entries to enable actions.", "ok");
+                } else {
+                    setStatus("", "ok");
+                }
+            }
+
+            // Watch selection changes
+            document.addEventListener("change", function(e){
+                if(!e || !e.target){ return; }
+                if(e.target.classList && e.target.classList.contains("ffda-entry-check")){
+                    refresh();
+                }
+                if(e.target && e.target.id === "ffda_select_all"){
+                    setTimeout(refresh, 0);
+                }
+            });
+
+            function postMassAction(actionName){
+                var ids = getSelectedIds();
+                if(ids.length === 0){
+                    setStatus("No entries selected.", "err");
+                    return;
+                }
+
+                var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+                var nonce = wrap.getAttribute("data-ajax-nonce") || "";
+                if(!ajaxUrl || !nonce){
+                    setStatus("Missing AJAX config.", "err");
+                    return;
+                }
+
+                var carrier = carrierSel ? carrierSel.value : "fedex";
+
+                setButtonsEnabled(false);
+                setStatus("Running " + actionName + " for " + ids.length + " entries…", "ok");
+
+                var form = new FormData();
+                form.append("action", "' . esc_js(self::AJAX_ACTION) . '");
+                form.append("nonce", nonce);
+                form.append("do", actionName);
+                form.append("carrier", carrier);
+                ids.forEach(function(id){ form.append("entry_ids[]", String(id)); });
+
+                fetch(ajaxUrl, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    body: form
+                })
+                .then(function(r){ return r.json().catch(function(){ return null; }); })
+                .then(function(data){
+                    if(!data || !data.success){
+                        var msg = (data && data.data && data.data.message) ? data.data.message : "Request failed.";
+                        setStatus(msg, "err");
+                    } else {
+                        var msgOk = (data.data && data.data.message) ? data.data.message : "Done.";
+                        setStatus(msgOk, "ok");
+                    }
+                })
+                .catch(function(err){
+                    setStatus("Network error: " + (err && err.message ? err.message : "unknown"), "err");
+                })
+                .finally(function(){
+                    refresh();
+                });
+            }
+
+            function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
+
+            function ensureVerifyBadge(container){
+                var el = container.querySelector(".ep-verify-status");
+                if(!el){
+                    el = document.createElement("span");
+                    el.className = "ep-verify-status";
+                    container.appendChild(el);
+                }
+                return el;
+            }
+
+            function renderVerifyResult(cell, payload){
+                var badge = ensureVerifyBadge(cell);
+
+                var ok = !!(payload && payload.ok);
+                var msg = (payload && payload.message) ? String(payload.message) : "";
+
+                if(ok){
+                    badge.className = "ep-verify-status ok";
+                    badge.textContent = "✓ Verified";
+                } else {
+                    badge.className = "ep-verify-status err";
+                    badge.textContent = "✗ " + (msg || "Address not verified.");
+                }
+                
+            }
+async function runVerifySequential(){
+  // ✅ ONLY rows where checkbox is checked
+  var checked = qsa(".ffda-entry-check:checked", wrap);
+
+  if(checked.length === 0){
+    setStatus("Select entries to enable actions.", "ok");
+    return;
+  }
+
+  var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+  var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+  if(!ajaxUrl || !nonce){
+    setStatus("Missing AJAX config.", "err");
+    return;
+  }
+
+  // lock non-verify actions
+  setButtonsEnabled(false);
+  setStatus("Verifying addresses: 0 / " + checked.length, "ok");
+
+  for (var i = 0; i < checked.length; i++) {
+    var cb = checked[i];
+    var row = cb.closest("tr");
+    if(!row){ continue; }
+
+    var entryId = parseInt(row.getAttribute("data-entry-id") || cb.value || "0", 10);
+    var addrCell = row.querySelector(".ffda-mailing-addr-cell");
+    if(!entryId || !addrCell){
+      setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
+      await sleep(500);
+      continue;
+    }
+
+    var badge = ensureVerifyBadge(addrCell);
+    badge.className = "ep-verify-status";
+    badge.textContent = "… verifying";
+
+    try{
+      var form = new FormData();
+      form.append("action", "ffda_massbuy_entry_verify_address");
+      form.append("nonce", nonce);
+      form.append("entry_id", String(entryId));
+
+      var resp = await fetch(ajaxUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        body: form
+      });
+
+      var json = null;
+      try { json = await resp.json(); } catch(e){ json = null; }
+
+      var payload = null;
+      if(json && typeof json.ok !== "undefined"){
+        payload = json;                 // { ok, verify_result, message }
+      } else if(json && json.success && json.data){
+        payload = json.data;            // WP wrapper
+      } else if(json && json.data){
+        payload = json.data;
+      } else {
+        payload = { ok:false, verify_result:false, message:"Bad response" };
+      }
+
+      renderVerifyResult(addrCell, payload);
+
+    } catch(err){
+      renderVerifyResult(addrCell, {
+        ok:false,
+        verify_result:false,
+        message:(err && err.message) ? err.message : "Network error"
+      });
+    }
+
+    setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
+    await sleep(500); // 0.5 sec delay
+  }
+
+  setStatus("Verify complete: " + checked.length + " entries.", "ok");
+  refresh(); // re-enable buttons based on current selection
+}
+
+
+            // Click handlers
+            buttons.forEach(function(btn){
+                btn.addEventListener("click", function(){
+                    var actionName = btn.getAttribute("data-ffda-action") || "";
+                    if(!actionName){ return; }
+
+                    if(actionName === "verify"){
+                        runVerifySequential();
+                        return;
+                    }
+
+                    postMassAction(actionName);
+                });
+            });
+
+            refresh();
+        })();
+        </script>';
     }
 
     private static function render_selection_ui(): void {
@@ -443,13 +746,123 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</nav>';
     }
 
+    /**
+     * Verify address endpoint:
+     * POST: action=ffda_massbuy_entry_verify_address, nonce, entry_id
+     * Returns: { ok: bool, verify_result: bool, message: string }
+     *
+     * NOTE: This will call helper method if it exists. Rename $method below to match your helper.
+     */
+    public static function ajax_verify_address_for_entry(): void {
+
+        //$nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+
+        $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+
+        try {
+
+            $helper = new FrmEasypostEntryHelper();
+            $out = $helper->verifyEntryAddress($entry_id);
+
+            // Normalize
+            if (is_array($out)) {
+                $ok = isset($out['ok']) ? (bool) $out['ok'] : true;
+                $msg = isset($out['message']) ? (string) $out['message'] : '';
+                wp_send_json(['ok' => $ok, 'message' => $msg]);
+            }
+
+            // Unknown
+            wp_send_json([
+                'ok' => false,
+                'message' => 'Unexpected verify response type.',
+            ]);
+
+        } catch (\Throwable $e) {
+            wp_send_json(['ok' => false, 'verify_result' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Mass actions endpoint for selected entries (calculate/buy/print/complete).
+     */
+    public static function ajax_handle_mass_action(): void {
+        if ( ! is_user_logged_in() ) {
+            wp_send_json_error(['message' => 'Not logged in.']);
+        }
+        if ( ! current_user_can('manage_options') ) {
+            wp_send_json_error(['message' => 'Insufficient permissions.']);
+        }
+
+        $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+        if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) {
+            wp_send_json_error(['message' => 'Bad nonce.']);
+        }
+
+        if ( ! class_exists('FrmEasypostLabelHelper') ) {
+            wp_send_json_error(['message' => 'FrmEasypostLabelHelper not loaded.']);
+        }
+
+        $do = isset($_POST['do']) ? sanitize_text_field((string) $_POST['do']) : '';
+        $allowed = ['calculate','buy','print','complete'];
+        if ( ! in_array($do, $allowed, true) ) {
+            wp_send_json_error(['message' => 'Unknown action.']);
+        }
+
+        $carrier = isset($_POST['carrier']) ? sanitize_text_field((string) $_POST['carrier']) : 'fedex';
+        $carrier = in_array($carrier, ['fedex','usps'], true) ? $carrier : 'fedex';
+
+        $entry_ids = isset($_POST['entry_ids']) ? (array) $_POST['entry_ids'] : [];
+        $ids = [];
+        foreach ($entry_ids as $id) {
+            $id = (int) $id;
+            if ($id > 0) { $ids[] = $id; }
+        }
+        $ids = array_values(array_unique($ids));
+
+        if (empty($ids)) {
+            wp_send_json_error(['message' => 'No entries selected.']);
+        }
+
+        $helper = new FrmEasypostLabelHelper();
+
+        // Change names to match your helper methods
+        $method_map = [
+            'calculate'  => 'massCalculateEntries',
+            'buy'        => 'massBuyLabels',
+            'print'      => 'massPrintLabels',
+            'complete'   => 'massCompleteEntries',
+        ];
+
+        $method = $method_map[$do] ?? '';
+        if ($method === '' || ! method_exists($helper, $method)) {
+            wp_send_json_error([
+                'message' => 'Action "' . $do . '" is not implemented in FrmEasypostLabelHelper (missing method ' . $method . ').'
+            ]);
+        }
+
+        try {
+            $out = $helper->{$method}($ids, $carrier);
+
+            $msg = 'Done: ' . $do . ' for ' . count($ids) . ' entries (' . strtoupper($carrier) . ').';
+            if (is_array($out) && isset($out['message']) && is_string($out['message'])) {
+                $msg = $out['message'];
+            }
+
+            wp_send_json_success([
+                'message' => $msg,
+                'result'  => $out,
+            ]);
+        } catch (\Throwable $e) {
+            wp_send_json_error(['message' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
     private static function processing_label(string $raw): string {
         $raw = trim($raw);
         if ($raw === '') { return ''; }
         if ($raw === (string) self::PT_STANDARD) { return 'Standard'; }
         if ($raw === (string) self::PT_EXPEDITED) { return 'Expedited'; }
         if ($raw === (string) self::PT_RUSH) { return 'Rush'; }
-        // fallback: show raw
         return $raw;
     }
 
