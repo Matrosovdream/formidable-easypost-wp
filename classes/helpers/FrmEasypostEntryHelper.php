@@ -12,7 +12,7 @@ class FrmEasypostEntryHelper {
 
         $addresses = array_merge(
             $this->getCorporateAddresses(),
-            $this->getEntryAddressFields( $entry_id )
+            [ $this->getEntryAddressFields( $entry_id ) ]
             //$this->getUserAddressesByEntry( $entry_id )
         );
 
@@ -52,7 +52,7 @@ class FrmEasypostEntryHelper {
 
     }    
 
-    protected function getEntryAddressFields( int $entry_id ) {
+    public function getEntryAddressFields( int $entry_id ) {
         
         // From /references.php
         $fields = FRM_EP_ENTRY_ADDRESS_FIELDS ?? [];
@@ -75,7 +75,51 @@ class FrmEasypostEntryHelper {
         $fieldValues['country'] = 'US';
         $fieldValues['is_user_address'] = true;
 
-        return [$fieldValues];
+        // Combined
+        $combinedAddress = [];
+        $combinedAddress[] = $fieldValues['street1'] ?? '';
+        $combinedAddress[] = $fieldValues['street2'] ?? '';
+        $combinedAddress[] = $fieldValues['city'] ?? '';
+        $combinedAddress[] = $fieldValues['state'] ?? '';
+        $combinedAddress[] = $fieldValues['zip'] ?? '';
+
+        // Exclude empty parts
+        $combinedAddress = array_filter($combinedAddress, fn($part) => trim($part) !== '');
+        $fieldValues['combined'] = implode(', ', $combinedAddress);
+
+        return $fieldValues;
+
+    }
+
+    public function verifyEntryAddress( int $entry_id ): array {
+
+        $address = $this->getEntryAddressFields( $entry_id );
+        //$addressLine = $address['combined'] ?? '';
+
+        try {
+            $smartyApi = new FrmSmartyApi();
+            $resp = $smartyApi->verifyAddress($address, true);
+    
+            if (is_array($resp) && !empty($resp['status']) && $resp['status'] === 'verified') {
+                return [
+                    'ok'         => true,
+                    'status'     => 'verified',
+                    'normalized' => $resp['normalized'] ?? [],
+                    'message'    => 'Address verified'
+                ];
+            }
+    
+            return [
+                'ok' => false, 
+                'message' => 'Address not verified'
+            ];
+
+        } catch (Throwable $e) {
+            return [
+                'ok' => false, 
+                'message' => 'Verify error: '.$e->getMessage()
+            ];
+        }
 
     }
 
