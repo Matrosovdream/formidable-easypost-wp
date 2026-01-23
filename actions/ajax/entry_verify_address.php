@@ -14,6 +14,34 @@ function ep_ajax_entry_verify_address() {
         wp_send_json_error(['message' => 'Invalid address payload.']);
     }
 
+    if( isset( $decoded['entry_id'] ) ) {
+
+        $entry_id = intval( $decoded['entry_id'] );
+        if ( $entry_id > 0 ) {
+            // Load address fields from entry
+            if ( ! class_exists( 'FrmEasypostEntryHelper' ) ) {
+                wp_send_json_error( [ 'message' => 'FrmEasypostEntryHelper not found.' ] );
+            }
+            $entry_helper = new FrmEasypostEntryHelper();
+            $entry_addresses = $entry_helper->getEntryAddressFields( $entry_id );
+            if ( is_array( $entry_addresses ) && count( $entry_addresses ) > 0 ) {
+                // Use the first address found
+                $addressData = $entry_addresses[0];
+                // Override with any provided fields
+                foreach ( [ 'name', 'street1', 'street2', 'city', 'state', 'zipcode' ] as $field ) {
+                    if ( isset( $decoded[ $field ] ) ) {
+                        $addressData[ $field ] = sanitize_text_field( $decoded[ $field ] );
+                    }
+                }
+            } else {
+                wp_send_json_error( [ 'message' => 'No address fields found for the given entry ID.' ] );
+            }
+        } else {
+            wp_send_json_error( [ 'message' => 'Invalid entry ID.' ] );
+        }
+
+    }
+
     $addressData = [
         'name'    => sanitize_text_field($decoded['name']    ?? ''),
         'street1' => sanitize_text_field($decoded['street1'] ?? ''),
