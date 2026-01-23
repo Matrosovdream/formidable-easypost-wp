@@ -208,7 +208,7 @@ class FrmEasypostLabelHelper {
         $list_params = array_merge($params, [$per_page, $offset]);
         $list_sql = $this->db->prepare($list_sql, $list_params);
 
-        echo $list_sql;
+        //echo $list_sql;
 
         $rows = $this->db->get_results($list_sql, ARRAY_A);
 
