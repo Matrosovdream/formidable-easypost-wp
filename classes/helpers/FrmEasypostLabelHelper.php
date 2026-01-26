@@ -88,10 +88,6 @@ class FrmEasypostLabelHelper {
         // Processing time
         $pt_field_id = (int) ($args['processing_time']['field_id'] ?? 211);
         $pt_value    = (int) ($args['processing_time']['value'] ?? 0);
-        $pt_allowed  = [0, 145, 175, 375];
-        if ( ! in_array($pt_value, $pt_allowed, true) ) {
-            $pt_value = 0;
-        }
 
         // If no services passed, safe empty result.
         if (empty($service_values)) {
