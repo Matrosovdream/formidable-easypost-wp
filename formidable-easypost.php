@@ -12,6 +12,13 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+/*
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+*/
+
+
 // Variables
 define('FRM_EAP_BASE_URL', __DIR__);
 define('FRM_EAP_BASE_PATH', plugin_dir_url(__FILE__));
@@ -22,8 +29,6 @@ require_once 'references.php';
 // Initialize core
 require_once 'classes/FrmEasypostInit.php';
 
-// Mass labels extension
-require_once 'mass-labels-extension.php';
 
 
 
