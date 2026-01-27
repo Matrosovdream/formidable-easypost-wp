@@ -16,10 +16,154 @@ class FrmEasypostEntryHelper {
             //$this->getUserAddressesByEntry( $entry_id )
         );
 
-        return $addresses;
+        return $this->prepareEntryAddresses( $entry_id, $addresses );
 
     }
 
+    public function prepareEntryAddresses( int $entry_id, array $addresses ): array {
+
+        $procTimes = [
+          145 => 'Standard',
+          175 => 'Expedited',
+          375 => 'Rushed',
+        ];
+  
+        $entryMetas  = $this->getEntryMetas($entry_id);
+        $procTimeId  = isset($entryMetas[211]) ? $entryMetas[211] : '';
+        $procTimeVal = $procTimes[ $procTimeId ] ?? '';
+        $entryState  = isset($entryMetas[40])  ? (string)$entryMetas[40] : '';
+        //$entryStateL = strtolower(trim($entryState));
+  
+        $selectedAddress = null;
+        $procTime        = '';
+  
+        // Determine target proc time label (if mapped)
+        if (isset($procTimes[$procTimeId])) {
+            $procTime = $procTimes[$procTimeId];
+        }
+  
+        // Build candidates by proc time (if we know the label)
+        $candidates = [];
+        if ($procTime !== '' && is_array($addresses)) {
+            foreach ($addresses as $a) {
+                if (($a['proc_time'] ?? '') === $procTime) {
+                    $candidates[] = $a;
+                }
+            }
+        }
+  
+        // Tiebreaker only by service_states (and must match to select)
+        if (
+          !empty($candidates) && 
+          count($candidates) > 1 &&
+          $entryState !== ''
+          ) {
+            foreach ($candidates as $a) {
+                //$svcStates = $parse_csv($a['service_states'] ?? '');
+                if (in_array($entryState, $a['service_states'])) {
+                    $selectedAddress = $a;
+                    break;
+                }
+            }
+            // If no match in service_states, leave $selectedAddress = null
+        } else {
+          $selectedAddress = $candidates[0];
+        }
+  
+        // Prepare output list
+        $out = [];
+        if (is_array($addresses)) {
+            foreach ($addresses as $a) {
+                $out[] = [
+                    'name'       => sanitize_text_field($a['name']    ?? ''),
+                    'street1'    => sanitize_text_field($a['street1'] ?? ''),
+                    'street2'    => sanitize_text_field($a['street2'] ?? ''),
+                    'city'       => sanitize_text_field($a['city']    ?? ''),
+                    'state'      => sanitize_text_field($a['state']   ?? ''),
+                    'zip'        => sanitize_text_field($a['zip']     ?? ''),
+                    'country'    => sanitize_text_field($a['country'] ?? 'US'),
+                    'phone'      => sanitize_text_field($a['phone']   ?? ''),
+                    'proc_time'  => sanitize_text_field($a['proc_time'] ?? ''),
+                    'is_user_address' => !empty($a['is_user_address']) ? true : false,
+                    'Selected'   => false, // default false
+                ];
+            }
+        }
+  
+          // Prepare ready_routes from $out, based on is_user_address and all pairs, and reversed
+          $user_indexes = [];
+          $other_indexes = [];
+  
+          foreach ($out as $idx => $row) {
+              if (!empty($row['is_user_address'])) {
+                  $user_indexes[] = (int) $idx;
+              } else {
+                  $other_indexes[] = (int) $idx;
+              }
+          }
+  
+          // Build pairs: user -> other, and reversed other -> user
+          $ready_routes = [];
+          foreach ($user_indexes as $u) {
+              foreach ($other_indexes as $o) {
+                  $ready_routes[] = [ $u, $o ];
+                  $ready_routes[] = [ $o, $u ];
+              }
+          }
+  
+        // If we picked a specific address, override selection by matching ZIP
+        if ($selectedAddress && !empty($out)) {
+            foreach ($out as $k => $row) {
+  
+              if( $row['is_user_address'] ) { continue; }
+  
+              if (($row['zip'] ?? '') !== '' && ($row['zip'] === ($selectedAddress['zip'] ?? ''))) {
+                  $out[$k]['Selected'] = true;
+                  break;
+              }
+            }
+        }
+  
+        // Let's find closest match by ZIP and proc_time
+        $closestAddress = null;
+        foreach ($out as $k => $row) {
+            if (
+                $row['Selected'] === true
+            ) {
+                $closestAddress = $row;
+            }
+        }
+  
+      // Where is_user_address true address?
+      $entryAddress = null;
+      foreach ($out as $row) {
+          if (!empty($row['is_user_address'])) {
+              $entryAddress = $row;
+              break;;
+          }    
+      }  
+  
+      // Passport service, find in name the word "Passport Service"
+      $passportServiceAddress = null;
+      foreach ($out as $row) {
+          if (stripos($row['name'], 'Passport Service') !== false) {
+              $passportServiceAddress = $row;
+              break;;
+          }    
+      }
+  
+      $data = [
+          'addresses' => $out, 
+          'closest_address' => $closestAddress, 
+          'entry_address' => $entryAddress,
+          'passport_service' => $passportServiceAddress,
+          'ready_routes' => $ready_routes
+      ];
+
+      return $data;
+
+    }
+ 
     public function getEntryMetas( int $entry_id ) {
 
         FrmEntry::clear_cache();
@@ -224,6 +368,71 @@ class FrmEasypostEntryHelper {
                 wp_schedule_single_event($ts, 'frm_void_single_shipment', [$easypost_id, $tracking_code]);
             }
         }
+
+    }
+
+    /**
+     * Calculate shipping rates for a given entry with filters.
+     *
+     * @param int   $entry_id The ID of the entry to calculate rates for.
+     * @param array $filters  An associative array of filters to apply.
+     *
+     * @return array An array of calculated shipping rates.
+     */
+    public function calculateRatesByEntry( int $entry_id, array $filters, array $sorting ): array {
+
+
+        // Get all entry addresses
+        $addresses = $this->getEntryAddresses( $entry_id );
+
+        // Prepare payload for calculate rates
+        $ratesPayload = [
+            'entry_id' => $entry_id,
+            'from_address' => $addresses['closest_address'] ?? [],
+            'to_address'   => $addresses['entry_address'] ?? [],
+        ];
+
+        // Calculate rates by API
+        $rateHelper = new FrmEasypostRateHelper();
+        $ratesData = $rateHelper->calculateRatesByEntry( $ratesPayload );
+
+        $rates = $ratesData['rates'] ?? [];
+
+        // Filter rates based on provided filters
+        if ( ! empty( $filters ) && is_array( $rates ) ) {
+            
+            if( isset( $filters['carrier'] ) ) {
+
+                $carrierFilter = strtolower( trim( $filters['carrier'] ) );
+                $rates = array_filter( $rates, function( $rate ) use ( $carrierFilter ) {
+                    return strtolower( trim( $rate['carrier'] ?? '' ) ) === $carrierFilter;
+                } );
+
+            }
+
+        }
+
+        // Sort rates based on provided sorting options
+        if ( ! empty( $sorting ) && is_array( $rates ) ) {
+
+            if( isset( $sorting['rate'] ) ) {
+
+                $sortOrder = strtolower( trim( $sorting['rate'] ) ) === 'asc' ? SORT_ASC : SORT_DESC;
+                usort( $rates, function( $a, $b ) use ( $sortOrder ) {
+                    $rateA = floatval( $a['rate'] ?? 0 );
+                    $rateB = floatval( $b['rate'] ?? 0 );
+                    if ( $rateA == $rateB ) {
+                        return 0;
+                    }
+                    return ( $sortOrder === SORT_ASC ) ? ( $rateA <=> $rateB ) : ( $rateB <=> $rateA );
+                } );
+
+            }
+
+
+        }
+
+        return $rates;
 
     }
 

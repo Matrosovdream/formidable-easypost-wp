@@ -18,7 +18,7 @@ class FrmEasypostShipmentHelper {
         $this->rateModel = new FrmEasypostShipmentRateModel();
     }
 
-    public function updateShipmentApi( string $shipmentId ):bool {
+    public function updateShipmentApi( string $shipmentId ) {
 
         $shipment = $this->shipmentApi->getShipmentById( $shipmentId );
 
@@ -30,7 +30,7 @@ class FrmEasypostShipmentHelper {
         $this->updateShipmentsDB( [$shipment] );
 
         // Successfuly updated
-        return true;
+        return $this->shipmentModel->getByEasypostId( $shipmentId );
 
     }
 
