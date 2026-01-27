@@ -119,6 +119,9 @@ class FrmEasypostInit {
         // Carrier Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostCarrierHelper.php';
 
+        // Rate Helper
+        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostRateHelper.php';
+
         // Settings Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostSettingsHelper.php';
 
