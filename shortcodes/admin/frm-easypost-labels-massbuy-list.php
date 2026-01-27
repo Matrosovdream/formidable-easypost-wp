@@ -1,5 +1,4 @@
 <?php
-
 if ( ! defined('ABSPATH') ) { exit; }
 
 final class FrmEasypostLabelsMassbuyListShortcode {
@@ -41,19 +40,20 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     ];
 
     /** AJAX */
-    private const AJAX_ACTION          = 'ffda_massbuy_labels_action';
-    private const AJAX_VERIFY_ADDRESS  = 'ffda_massbuy_entry_verify_address';
-    private const NONCE_KEY            = 'ffda_massbuy_labels_nonce';
+    private const AJAX_VERIFY_ADDRESS       = 'ffda_massbuy_entry_verify_address';
+    private const AJAX_CALCULATE_RATES      = 'ffda_massbuy_entry_calculate_rates_for_entry';
+    private const AJAX_BUY_LABEL_FOR_ENTRY  = 'ajax_buy_label_for_entry';
+    private const AJAX_SET_COMPLETE_ENTRY   = 'ajax_set_complete_entry';
+    private const NONCE_KEY                 = 'ffda_massbuy_labels_nonce';
 
     public static function init(): void {
         add_action('init', [__CLASS__, 'register_shortcode']);
         add_action('wp_enqueue_scripts', [__CLASS__, 'register_bootstrap_assets']);
 
-        // Mass actions (logged-in)
-        add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajax_handle_mass_action']);
-
-        // Verify address per entry (logged-in)
         add_action('wp_ajax_' . self::AJAX_VERIFY_ADDRESS, [__CLASS__, 'ajax_verify_address_for_entry']);
+        add_action('wp_ajax_' . self::AJAX_CALCULATE_RATES, [__CLASS__, 'ajax_calculate_rates_for_entry']);
+        add_action('wp_ajax_' . self::AJAX_BUY_LABEL_FOR_ENTRY, [__CLASS__, 'ajax_buy_label_for_entry']);
+        add_action('wp_ajax_' . self::AJAX_SET_COMPLETE_ENTRY, [__CLASS__, 'ajax_set_complete_entry']);
     }
 
     public static function register_shortcode(): void {
@@ -111,7 +111,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $services = ($group === 'two') ? self::SERVICES_TWO_LABELS : self::SERVICES_ONE_LABEL;
 
         $helper = new FrmEasypostLabelHelper();
-        $entryHelper = new FrmEasypostEntryHelper();
+        $entryHelper = class_exists('FrmEasypostEntryHelper') ? new FrmEasypostEntryHelper() : null;
 
         $args = [
             'page' => $page,
@@ -138,7 +138,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
             ],
             'processing_time' => [
                 'field_id' => self::FIELD_PROCESSING_TIME,
-                'value'    => $processing, // 0 means no filter
+                'value'    => $processing,
             ],
         ];
 
@@ -171,6 +171,9 @@ final class FrmEasypostLabelsMassbuyListShortcode {
             'processing' => $processing,
         ]);
 
+        // Alert area for errors (Calculate can show red alert)
+        echo '<div id="ffda_alert_area"></div>';
+
         // Summary
         echo '<div class="d-flex align-items-center justify-content-between mb-2">';
         echo '<div class="text-muted small">';
@@ -182,7 +185,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</div>';
         echo '</div>';
 
-        // Table
+        // Table (your latest header changes + rename Photos => Features)
         echo '<div class="table-responsive">';
         echo '<table class="table table-sm table-striped align-middle">';
         echo '<thead class="table-light">';
@@ -193,17 +196,17 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<th style="width:40px;">ID</th>';
         echo '<th style="width:180px;">Created</th>';
         echo '<th style="width:220px;">Service (12)</th>';
-        echo '<th style="width:140px;">Photos</th>';
+        echo '<th style="width:140px;">Features</th>';
         echo '<th style="width:200px;">Mailing address</th>';
-        echo '<th style="width:180px;">Processing time</th>';
-        echo '<th style="width:260px;">Tracking number (344)</th>';
+        echo '<th style="width:130px;">Proc time</th>';
+        echo '<th style="width:350px;">Rates</th>';
         echo '<th style="width:110px;" class="text-end"></th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
 
         if (empty($items)) {
-            echo '<tr><td colspan="8" class="text-center text-muted py-4">No results for this filter.</td></tr>';
+            echo '<tr><td colspan="9" class="text-center text-muted py-4">No results for this filter.</td></tr>';
         } else {
             foreach ($items as $entry) {
                 if ( ! is_object($entry) || empty($entry->id) ) { continue; }
@@ -214,10 +217,12 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 $metas = isset($entry->metas) && is_array($entry->metas) ? $entry->metas : [];
 
-                $service_val  = self::meta_val($metas, self::FIELD_SERVICE);
-                $track_344    = self::meta_val($metas, self::FIELD_NATIONAL_TRACK);
-                $proc_211     = self::meta_val($metas, self::FIELD_PROCESSING_TIME);
-                $mailing_addr = $entryHelper->getEntryAddressFields($id);
+                $service_val = self::meta_val($metas, self::FIELD_SERVICE);
+                $proc_211    = self::meta_val($metas, self::FIELD_PROCESSING_TIME);
+
+                $mailing_addr = $entryHelper
+                    ? $entryHelper->getEntryAddressFields($id)
+                    : ['combined' => self::meta_val($metas, self::FIELD_MAILING_ADDRESS)];
 
                 $photo_badge = ($photo_mode === 'with')
                     ? '<span class="badge text-bg-success">photo-done</span>'
@@ -237,13 +242,17 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 echo '<td><strong>' . esc_html((string) $id) . '</strong></td>';
                 echo '<td class="small">' . esc_html($created ?: '-') . '</td>';
                 echo '<td>' . esc_html($service_val ?: '-') . '</td>';
-                echo '<td>' . $photo_badge . '</td>';
 
-                // Mailing address cell (we add a class so JS can inject verify badge)
-                echo '<td class="ffda-mailing-addr-cell">' . esc_html($mailing_addr['combined'] ?: '-') . '</td>';
+                // ✅ Features column (was Photos)
+                echo '<td class="ffda-features-cell">' . $photo_badge . '</td>';
+
+                echo '<td class="ffda-mailing-addr-cell">' . esc_html($mailing_addr['combined'] ?? '-') . '</td>';
 
                 echo '<td>' . $proc_badge . '</td>';
-                echo '<td>' . esc_html($track_344 ?: '-') . '</td>';
+
+                // Rates placeholder
+                echo '<td class="ffda-rates-cell"><span class="ffda-rates-placeholder"></span></td>';
+
                 echo '<td class="text-end"><a class="btn btn-outline-primary btn-sm" href="' . esc_url($order_url) . '" target="_blank" rel="noopener">Open</a></td>';
                 echo '</tr>';
             }
@@ -276,19 +285,25 @@ final class FrmEasypostLabelsMassbuyListShortcode {
             'processing' => $processing,
         ]);
 
-        // Small CSS for verify badges
+        // Styles
         echo '<style>
             .ep-verify-status {
-    font-size: 12px;
-    display: block;
-    width: fit-content;
-    border: 1px solid green;
-    border-radius: 4px;
-    padding: 3px;
-}
+                font-size: 12px;
+                display: block;
+                width: fit-content;
+                border: 1px solid green;
+                border-radius: 4px;
+                padding: 3px;
+                margin-top: 6px;
+            }
             .ep-verify-status.ok{color:#0a7a2b}
-            .ep-verify-status.err{    color: #b00020;
-    border: 1px solid #b00020;}
+            .ep-verify-status.err{color:#b00020;border:1px solid #b00020;}
+
+            .ffda-inline-msg { font-size: 12px; padding: 2px 6px; border-radius: 4px; display:inline-block; }
+            .ffda-inline-msg.ok { color:#0a7a2b; border:1px solid #0a7a2b; }
+            .ffda-inline-msg.err { color:#b00020; border:1px solid #b00020; }
+
+            .label-printed-tag { margin-left: 6px; }
         </style>';
 
         echo '</div>';
@@ -304,7 +319,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $group = $state['group'] ?? 'one';
         $processing = (int) ($state['processing'] ?? 0);
 
-        $action = self::current_url_without(['pg']); // reset page on apply
+        $action = self::current_url_without(['pg']);
 
         echo '<form method="get" action="' . esc_url($action) . '" class="card card-body mb-3">';
         echo '<div class="row g-2 align-items-end">';
@@ -335,25 +350,25 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</select>';
         echo '</div>';
 
-        // Buttons row: LEFT = carrier + actions, RIGHT = Apply
         echo '<div class="col-12 d-flex flex-wrap justify-content-between align-items-end gap-2 mt-2">';
 
         // LEFT controls
         echo '<div class="d-flex flex-wrap align-items-end gap-2">';
+
         echo '<div>';
         echo '<label class="form-label mb-1">Select Carrier</label>';
-        echo '<select class="form-select form-select-sm" id="ffda_carrier_select" style="min-width:180px;">';
+        echo '<select class="form-select form-select-sm" id="ffda_carrier_select" style="min-width:180px; height:32px;">';
         echo '<option value="fedex">FedEx</option>';
         echo '<option value="usps">USPS</option>';
         echo '</select>';
         echo '</div>';
 
         echo '<div class="d-flex flex-wrap gap-2 align-items-end" style="padding-top:22px;">';
-        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="verify">Verify</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="verify" disabled>Verify</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="calculate" disabled>Calculate</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="buy" disabled>Buy</button>';
-        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="print" disabled>Print</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="complete" disabled>Complete</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="print" disabled>Print</button>';
         echo '</div>';
 
         echo '<div class="small" style="padding-top:22px;">';
@@ -378,246 +393,540 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
         echo '</form>';
 
-        // JS: enable/disable mass buttons based on selection + AJAX handlers + sequential verify
-        echo '<script>
-        (function(){
-            function qs(sel, root){ return (root||document).querySelector(sel); }
-            function qsa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+        // --- Inline JS (HEREDOC to avoid PHP/JS quote parse errors) ---
+        $ajaxVerify   = esc_js(self::AJAX_VERIFY_ADDRESS);
+        $ajaxCalc     = esc_js(self::AJAX_CALCULATE_RATES);
+        $ajaxBuy      = esc_js(self::AJAX_BUY_LABEL_FOR_ENTRY);
+        $ajaxComplete = esc_js(self::AJAX_SET_COMPLETE_ENTRY);
 
-            var wrap = qs(".ffda-massbuy-list");
-            if(!wrap){ return; }
+        $js = <<<JS
+(function(){
+  function qs(sel, root){ return (root||document).querySelector(sel); }
+  function qsa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
 
-            function getSelectedIds(){
-                return qsa(".ffda-entry-check", wrap)
-                    .filter(function(cb){ return cb && cb.checked; })
-                    .map(function(cb){ return parseInt(cb.value, 10); })
-                    .filter(function(v){ return v && v > 0; });
-            }
+  var wrap = qs(".ffda-massbuy-list");
+  if(!wrap){ return; }
 
-            var buttons = qsa(".ffda-mass-btn", wrap);
-            var carrierSel = qs("#ffda_carrier_select", wrap);
-            var statusEl = qs("#ffda_mass_action_status", wrap);
+  var alertArea = qs("#ffda_alert_area", wrap);
 
-            function setButtonsEnabled(enabled){
-                buttons.forEach(function(btn){
-                    var actionName = btn.getAttribute("data-ffda-action") || "";
-                    // Verify is allowed regardless of selection (your spec says: go through every row)
-                    if(actionName === "verify"){
-                        btn.disabled = false;
-                        return;
-                    }
-                    btn.disabled = !enabled;
-                });
-            }
-
-            function setStatus(msg, type){
-                if(!statusEl){ return; }
-                statusEl.textContent = msg || "";
-                statusEl.className = "";
-
-                // text color only
-                if(type === "ok"){ statusEl.classList.add("text-success"); }
-                else if(type === "err"){ statusEl.classList.add("text-danger"); }
-                else { statusEl.classList.add("text-success"); } // default green
-            }
-
-            function refresh(){
-                var ids = getSelectedIds();
-                setButtonsEnabled(ids.length > 0);
-                if(ids.length === 0){
-                    setStatus("Select entries to enable actions.", "ok");
-                } else {
-                    setStatus("", "ok");
-                }
-            }
-
-            // Watch selection changes
-            document.addEventListener("change", function(e){
-                if(!e || !e.target){ return; }
-                if(e.target.classList && e.target.classList.contains("ffda-entry-check")){
-                    refresh();
-                }
-                if(e.target && e.target.id === "ffda_select_all"){
-                    setTimeout(refresh, 0);
-                }
-            });
-
-            function postMassAction(actionName){
-                var ids = getSelectedIds();
-                if(ids.length === 0){
-                    setStatus("No entries selected.", "err");
-                    return;
-                }
-
-                var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
-                var nonce = wrap.getAttribute("data-ajax-nonce") || "";
-                if(!ajaxUrl || !nonce){
-                    setStatus("Missing AJAX config.", "err");
-                    return;
-                }
-
-                var carrier = carrierSel ? carrierSel.value : "fedex";
-
-                setButtonsEnabled(false);
-                setStatus("Running " + actionName + " for " + ids.length + " entries…", "ok");
-
-                var form = new FormData();
-                form.append("action", "' . esc_js(self::AJAX_ACTION) . '");
-                form.append("nonce", nonce);
-                form.append("do", actionName);
-                form.append("carrier", carrier);
-                ids.forEach(function(id){ form.append("entry_ids[]", String(id)); });
-
-                fetch(ajaxUrl, {
-                    method: "POST",
-                    credentials: "same-origin",
-                    body: form
-                })
-                .then(function(r){ return r.json().catch(function(){ return null; }); })
-                .then(function(data){
-                    if(!data || !data.success){
-                        var msg = (data && data.data && data.data.message) ? data.data.message : "Request failed.";
-                        setStatus(msg, "err");
-                    } else {
-                        var msgOk = (data.data && data.data.message) ? data.data.message : "Done.";
-                        setStatus(msgOk, "ok");
-                    }
-                })
-                .catch(function(err){
-                    setStatus("Network error: " + (err && err.message ? err.message : "unknown"), "err");
-                })
-                .finally(function(){
-                    refresh();
-                });
-            }
-
-            function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
-
-            function ensureVerifyBadge(container){
-                var el = container.querySelector(".ep-verify-status");
-                if(!el){
-                    el = document.createElement("span");
-                    el.className = "ep-verify-status";
-                    container.appendChild(el);
-                }
-                return el;
-            }
-
-            function renderVerifyResult(cell, payload){
-                var badge = ensureVerifyBadge(cell);
-
-                var ok = !!(payload && payload.ok);
-                var msg = (payload && payload.message) ? String(payload.message) : "";
-
-                if(ok){
-                    badge.className = "ep-verify-status ok";
-                    badge.textContent = "✓ Verified";
-                } else {
-                    badge.className = "ep-verify-status err";
-                    badge.textContent = "✗ " + (msg || "Address not verified.");
-                }
-                
-            }
-async function runVerifySequential(){
-  // ✅ ONLY rows where checkbox is checked
-  var checked = qsa(".ffda-entry-check:checked", wrap);
-
-  if(checked.length === 0){
-    setStatus("Select entries to enable actions.", "ok");
-    return;
+  function clearAlert(){
+    if(alertArea){ alertArea.innerHTML = ""; }
+  }
+  function showAlertDanger(message){
+    if(!alertArea){ return; }
+    alertArea.innerHTML = '<div class="alert alert-danger mb-3">' + (message ? String(message) : "Error") + "</div>";
   }
 
-  var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
-  var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
-  if(!ajaxUrl || !nonce){
-    setStatus("Missing AJAX config.", "err");
-    return;
+  function getSelectedCheckboxes(){
+    return qsa(".ffda-entry-check:checked", wrap);
   }
 
-  // lock non-verify actions
-  setButtonsEnabled(false);
-  setStatus("Verifying addresses: 0 / " + checked.length, "ok");
+  var buttons = qsa(".ffda-mass-btn", wrap);
+  var carrierSel = qs("#ffda_carrier_select", wrap);
+  var statusEl = qs("#ffda_mass_action_status", wrap);
 
-  for (var i = 0; i < checked.length; i++) {
-    var cb = checked[i];
-    var row = cb.closest("tr");
-    if(!row){ continue; }
+  function setButtonsEnabled(enabled){
+    buttons.forEach(function(btn){ btn.disabled = !enabled; });
+  }
 
-    var entryId = parseInt(row.getAttribute("data-entry-id") || cb.value || "0", 10);
-    var addrCell = row.querySelector(".ffda-mailing-addr-cell");
-    if(!entryId || !addrCell){
-      setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
-      await sleep(500);
-      continue;
+  function setStatus(msg, type){
+    if(!statusEl){ return; }
+    statusEl.textContent = msg || "";
+    statusEl.className = "";
+    statusEl.classList.add(type === "err" ? "text-danger" : "text-success");
+  }
+
+  function refresh(){
+    var checked = getSelectedCheckboxes();
+    setButtonsEnabled(checked.length > 0);
+    if(checked.length === 0){
+      setStatus("Select entries to enable actions.", "ok");
+    } else {
+      setStatus("", "ok");
     }
+  }
 
-    var badge = ensureVerifyBadge(addrCell);
-    badge.className = "ep-verify-status";
-    badge.textContent = "… verifying";
+  document.addEventListener("change", function(e){
+    if(!e || !e.target){ return; }
+    if(e.target.classList && e.target.classList.contains("ffda-entry-check")){
+      refresh();
+    }
+    if(e.target && e.target.id === "ffda_select_all"){
+      setTimeout(refresh, 0);
+    }
+  });
 
-    try{
-      var form = new FormData();
-      form.append("action", "ffda_massbuy_entry_verify_address");
-      form.append("nonce", nonce);
-      form.append("entry_id", String(entryId));
+  function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
 
-      var resp = await fetch(ajaxUrl, {
-        method: "POST",
-        credentials: "same-origin",
-        body: form
-      });
+  function ensureVerifyBadge(container){
+    var el = container.querySelector(".ep-verify-status");
+    if(!el){
+      el = document.createElement("span");
+      el.className = "ep-verify-status";
+      container.appendChild(el);
+    }
+    return el;
+  }
 
-      var json = null;
-      try { json = await resp.json(); } catch(e){ json = null; }
+  function renderVerifyResult(cell, payload){
+    var badge = ensureVerifyBadge(cell);
 
-      var payload = null;
-      if(json && typeof json.ok !== "undefined"){
-        payload = json;                 // { ok, verify_result, message }
-      } else if(json && json.success && json.data){
-        payload = json.data;            // WP wrapper
-      } else if(json && json.data){
-        payload = json.data;
-      } else {
-        payload = { ok:false, verify_result:false, message:"Bad response" };
+    var ok = !!(payload && payload.ok);
+    var msg = (payload && payload.message) ? String(payload.message) : "";
+
+    if(ok){
+      badge.className = "ep-verify-status ok";
+      badge.textContent = "✓ Verified";
+    } else {
+      badge.className = "ep-verify-status err";
+      badge.textContent = "✗ " + (msg || "Address not verified.");
+    }
+  }
+
+  // ✅ Update: option stores rate_id + shipment_id (as data-attr)
+  // ✅ Update: first rate auto-selected
+  function renderRatesSelect(cell, rates, entryId){
+    cell.innerHTML = "";
+
+    var sel = document.createElement("select");
+    sel.className = "form-select form-select-sm ffda-rate-select";
+    sel.setAttribute("data-entry-id", String(entryId));
+
+    var opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "Select rate…";
+    sel.appendChild(opt0);
+
+    var firstSelectableIndex = -1;
+
+    console.log(rates);
+
+    (rates || []).forEach(function(r, idx){
+      var o = document.createElement("option");
+
+      var rateId = (r && r.id) ? String(r.id) : String(idx);
+      var label = (r && r.label) ? String(r.label) : ("Rate " + (idx+1));
+      var shipmentId = (r && r.shipment_id) ? String(r.shipment_id) : "";
+
+      o.value = rateId;
+      o.textContent = label;
+
+      if(shipmentId){
+        o.setAttribute("data-shipment-id", shipmentId);
       }
 
-      renderVerifyResult(addrCell, payload);
+      sel.appendChild(o);
 
-    } catch(err){
-      renderVerifyResult(addrCell, {
-        ok:false,
-        verify_result:false,
-        message:(err && err.message) ? err.message : "Network error"
-      });
+      if(firstSelectableIndex === -1){
+        firstSelectableIndex = sel.options.length - 1; // after appending
+      }
+    });
+
+    cell.appendChild(sel);
+
+    // status area under select (buy success/error + tracking link)
+    var st = document.createElement("div");
+    st.className = "ffda-buy-status mt-1";
+    cell.appendChild(st);
+
+    // ✅ default select first item (if exists)
+    if(firstSelectableIndex > 0){
+      sel.selectedIndex = firstSelectableIndex;
     }
-
-    setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
-    await sleep(500); // 0.5 sec delay
   }
 
-  setStatus("Verify complete: " + checked.length + " entries.", "ok");
-  refresh(); // re-enable buttons based on current selection
-}
+  async function runVerifySequential(){
+    clearAlert();
 
+    var checked = getSelectedCheckboxes();
+    if(checked.length === 0){
+      setStatus("Select entries to enable actions.", "ok");
+      return;
+    }
 
-            // Click handlers
-            buttons.forEach(function(btn){
-                btn.addEventListener("click", function(){
-                    var actionName = btn.getAttribute("data-ffda-action") || "";
-                    if(!actionName){ return; }
+    var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+    var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+    if(!ajaxUrl || !nonce){
+      setStatus("Missing AJAX config.", "err");
+      return;
+    }
 
-                    if(actionName === "verify"){
-                        runVerifySequential();
-                        return;
-                    }
+    setButtonsEnabled(false);
+    setStatus("Verifying addresses: 0 / " + checked.length, "ok");
 
-                    postMassAction(actionName);
-                });
-            });
+    for(var i=0; i<checked.length; i++){
+      var cb = checked[i];
+      var row = cb.closest("tr");
+      if(!row){ continue; }
 
-            refresh();
-        })();
-        </script>';
+      var entryId = parseInt(row.getAttribute("data-entry-id") || cb.value || "0", 10);
+      var addrCell = row.querySelector(".ffda-mailing-addr-cell");
+
+      if(!entryId || !addrCell){
+        setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      var badge = ensureVerifyBadge(addrCell);
+      badge.className = "ep-verify-status";
+      badge.textContent = "… verifying";
+
+      try{
+        var form = new FormData();
+        form.append("action", "{$ajaxVerify}");
+        form.append("nonce", nonce);
+        form.append("entry_id", String(entryId));
+
+        var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
+        var json = null;
+        try { json = await resp.json(); } catch(e){ json = null; }
+
+        var payload = (json && typeof json.ok !== "undefined") ? json
+                    : (json && json.success && json.data) ? json.data
+                    : (json && json.data) ? json.data
+                    : { ok:false, message:"Bad response" };
+
+        renderVerifyResult(addrCell, payload);
+
+      } catch(err){
+        renderVerifyResult(addrCell, { ok:false, message:(err && err.message) ? err.message : "Network error" });
+      }
+
+      setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
+      await sleep(500);
+    }
+
+    setStatus("Verify complete: " + checked.length + " entries.", "ok");
+    refresh();
+  }
+
+  async function runCalculateSequential(){
+    clearAlert();
+
+    var checked = getSelectedCheckboxes();
+    if(checked.length === 0){
+      setStatus("Select entries to enable actions.", "ok");
+      return;
+    }
+
+    var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+    var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+    if(!ajaxUrl || !nonce){
+      setStatus("Missing AJAX config.", "err");
+      return;
+    }
+
+    setButtonsEnabled(false);
+    setStatus("Calculating rates: 0 / " + checked.length, "ok");
+
+    for(var i=0; i<checked.length; i++){
+      var cb = checked[i];
+      var row = cb.closest("tr");
+      if(!row){ continue; }
+
+      var entryId = parseInt(row.getAttribute("data-entry-id") || cb.value || "0", 10);
+      var ratesCell = row.querySelector(".ffda-rates-cell");
+
+      if(!entryId || !ratesCell){
+        setStatus("Calculating rates: " + (i+1) + " / " + checked.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      ratesCell.innerHTML = '<span class="text-muted">… calculating</span>';
+
+      try{
+        var form = new FormData();
+        form.append("action", "{$ajaxCalc}");
+        form.append("nonce", nonce);
+        form.append("entry_id", String(entryId));
+
+        var carrier = (carrierSel && carrierSel.value) ? String(carrierSel.value) : "";
+        form.append("carrier", carrier);
+
+        var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
+        var json = null;
+        try { json = await resp.json(); } catch(e){ json = null; }
+
+        var payload = (json && typeof json.ok !== "undefined") ? json
+                    : (json && json.success && json.data) ? json.data
+                    : (json && json.data) ? json.data
+                    : { ok:false, message:"Bad response" };
+
+        var ok = !!payload.ok;
+        var msg = payload.message ? String(payload.message) : "";
+        var rates = (payload.rates && Array.isArray(payload.rates)) ? payload.rates : null;
+
+        if(ok && rates && rates.length){
+          renderRatesSelect(ratesCell, rates, entryId);
+        } else {
+          if(!ok){
+            showAlertDanger(msg || "Rates not found.");
+            setStatus(msg || "Rates not found.", "err");
+          }
+          ratesCell.innerHTML = '<span class="text-muted">-</span>';
+        }
+
+      } catch(err){
+        var m = (err && err.message) ? err.message : "Network error";
+        showAlertDanger(m);
+        setStatus(m, "err");
+        ratesCell.innerHTML = '<span class="text-muted">-</span>';
+      }
+
+      setStatus("Calculating rates: " + (i+1) + " / " + checked.length, "ok");
+      await sleep(500);
+    }
+
+    setStatus("Calculate complete: " + checked.length + " entries.", "ok");
+    refresh();
+  }
+
+  async function runBuySequential(){
+    clearAlert();
+
+    // Buy goes through ALL rows that currently have rate selects
+    var selects = qsa(".ffda-rate-select", wrap);
+    if(selects.length === 0){
+      showAlertDanger("No rate selects found. Click Calculate first.");
+      setStatus("No rate selects found.", "err");
+      return;
+    }
+
+    var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+    var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+    if(!ajaxUrl || !nonce){
+      setStatus("Missing AJAX config.", "err");
+      return;
+    }
+
+    setButtonsEnabled(false);
+    setStatus("Buying labels: 0 / " + selects.length, "ok");
+
+    for(var i=0; i<selects.length; i++){
+      var sel = selects[i];
+
+      // already bought => skip
+      if(sel.disabled){
+        setStatus("Buying labels: " + (i+1) + " / " + selects.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      var rateId = (sel.value || "").trim();
+      var entryId = parseInt(sel.getAttribute("data-entry-id") || "0", 10);
+
+      // ✅ shipment_id comes from selected option data-shipment-id
+      var shipmentId = "";
+      if(sel && sel.selectedOptions && sel.selectedOptions[0]){
+        shipmentId = sel.selectedOptions[0].getAttribute("data-shipment-id") || "";
+      }
+
+      var cell = sel.closest(".ffda-rates-cell");
+      var statusBox = cell ? cell.querySelector(".ffda-buy-status") : null;
+
+      function setInlineMsg(type, text){
+        if(!statusBox){ return; }
+        statusBox.innerHTML =
+          "<span class=\\"ffda-inline-msg " + String(type) + "\\">" +
+            String(text) +
+          "</span>";
+      }
+
+      if(!entryId){
+        setInlineMsg("err", "Bad entry id");
+        setStatus("Buying labels: " + (i+1) + " / " + selects.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      if(!rateId){
+        setInlineMsg("err", "Rate is not chosen");
+        setStatus("Buying labels: " + (i+1) + " / " + selects.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      if(!shipmentId){
+        setInlineMsg("err", "Missing shipment_id");
+        setStatus("Buying labels: " + (i+1) + " / " + selects.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      setInlineMsg("ok", "… buying");
+
+      try{
+        var form = new FormData();
+        form.append("action", "{$ajaxBuy}");
+        form.append("nonce", nonce);
+        form.append("entry_id", String(entryId));
+        form.append("shipment_id", String(shipmentId)); // ✅ new
+        form.append("rate_id", rateId);
+
+        var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
+        var json = null;
+        try { json = await resp.json(); } catch(e){ json = null; }
+
+        var payload = (json && typeof json.ok !== "undefined") ? json
+                    : (json && json.success && json.data) ? json.data
+                    : (json && json.data) ? json.data
+                    : { ok:false, message:"Bad response" };
+
+        var ok = !!payload.ok;
+        var msg = payload.message ? String(payload.message) : (ok ? "Bought" : "Buy failed");
+
+        if(ok){
+          sel.disabled = true;
+          setInlineMsg("ok", msg);
+
+          // If payload[data][tracking_url], show tracking url under select
+          var trackingUrl = "";
+          if(payload && payload.data && payload.data.tracking_url){
+            trackingUrl = String(payload.data.tracking_url);
+          } else if(payload && payload.tracking_url){
+            trackingUrl = String(payload.tracking_url);
+          }
+
+          if(trackingUrl && statusBox){
+            var linkWrap = document.createElement("div");
+            linkWrap.className = "mt-1";
+
+            var a = document.createElement("a");
+            a.href = trackingUrl;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.textContent = trackingUrl;
+
+            linkWrap.appendChild(a);
+            statusBox.appendChild(linkWrap);
+          }
+        } else {
+          setInlineMsg("err", msg);
+        }
+
+      } catch(err){
+        setInlineMsg("err", (err && err.message) ? err.message : "Network error");
+      }
+
+      setStatus("Buying labels: " + (i+1) + " / " + selects.length, "ok");
+      await sleep(500);
+    }
+
+    setStatus("Buy complete.", "ok");
+    refresh();
+  }
+
+  function hasLabelPrintedBadge(featuresCell){
+    if(!featuresCell) return false;
+    return !!featuresCell.querySelector(".label-printed-tag");
+  }
+
+  function addLabelPrintedBadge(featuresCell){
+    if(!featuresCell) return;
+    if(hasLabelPrintedBadge(featuresCell)) return;
+
+    var b = document.createElement("span");
+    b.className = "badge text-bg-secondary label-printed-tag";
+    b.textContent = "label-printed";
+    featuresCell.appendChild(b);
+  }
+
+  async function runCompleteSequential(){
+    clearAlert();
+
+    var checked = getSelectedCheckboxes();
+    if(checked.length === 0){
+      setStatus("Select entries to enable actions.", "ok");
+      return;
+    }
+
+    var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+    var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+    if(!ajaxUrl || !nonce){
+      setStatus("Missing AJAX config.", "err");
+      return;
+    }
+
+    setButtonsEnabled(false);
+    setStatus("Completing: 0 / " + checked.length, "ok");
+
+    for(var i=0; i<checked.length; i++){
+      var cb = checked[i];
+      var row = cb.closest("tr");
+      if(!row){ continue; }
+
+      var entryId = parseInt(row.getAttribute("data-entry-id") || cb.value || "0", 10);
+      var featuresCell = row.querySelector(".ffda-features-cell");
+
+      if(!entryId || !featuresCell){
+        setStatus("Completing: " + (i+1) + " / " + checked.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      // If already has label-printed badge => skip
+      if(hasLabelPrintedBadge(featuresCell)){
+        setStatus("Completing: " + (i+1) + " / " + checked.length, "ok");
+        await sleep(500);
+        continue;
+      }
+
+      try{
+        var form = new FormData();
+        form.append("action", "{$ajaxComplete}");
+        form.append("nonce", nonce);
+        form.append("entry_id", String(entryId));
+
+        var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
+        var json = null;
+        try { json = await resp.json(); } catch(e){ json = null; }
+
+        var payload = (json && typeof json.ok !== "undefined") ? json
+                    : (json && json.success && json.data) ? json.data
+                    : (json && json.data) ? json.data
+                    : { ok:false, message:"Bad response" };
+
+        if(payload && payload.ok){
+          addLabelPrintedBadge(featuresCell);
+        } else {
+          var msg = (payload && payload.message) ? String(payload.message) : "Complete failed";
+          showAlertDanger(msg);
+        }
+
+      } catch(err){
+        showAlertDanger((err && err.message) ? err.message : "Network error");
+      }
+
+      setStatus("Completing: " + (i+1) + " / " + checked.length, "ok");
+      await sleep(500);
+    }
+
+    setStatus("Complete finished.", "ok");
+    refresh();
+  }
+
+  // Click handlers
+  buttons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var actionName = btn.getAttribute("data-ffda-action") || "";
+      if(!actionName){ return; }
+
+      if(actionName === "verify"){ runVerifySequential(); return; }
+      if(actionName === "calculate"){ runCalculateSequential(); return; }
+      if(actionName === "buy"){ runBuySequential(); return; }
+      if(actionName === "complete"){ runCompleteSequential(); return; }
+
+      showAlertDanger("Action not implemented: " + actionName);
+    });
+  });
+
+  refresh();
+})();
+JS;
+
+        echo '<script>' . $js . '</script>';
     }
 
     private static function render_selection_ui(): void {
@@ -746,116 +1055,107 @@ async function runVerifySequential(){
         echo '</nav>';
     }
 
-    /**
-     * Verify address endpoint:
-     * POST: action=ffda_massbuy_entry_verify_address, nonce, entry_id
-     * Returns: { ok: bool, verify_result: bool, message: string }
-     *
-     * NOTE: This will call helper method if it exists. Rename $method below to match your helper.
-     */
+    // ---------------- AJAX HANDLERS (STUBS) ----------------
+
     public static function ajax_verify_address_for_entry(): void {
-
-        //$nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
-
-        $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
-
-        try {
-
-            $helper = new FrmEasypostEntryHelper();
-            $out = $helper->verifyEntryAddress($entry_id);
-
-            // Normalize
-            if (is_array($out)) {
-                $ok = isset($out['ok']) ? (bool) $out['ok'] : true;
-                $msg = isset($out['message']) ? (string) $out['message'] : '';
-                wp_send_json(['ok' => $ok, 'message' => $msg]);
-            }
-
-            // Unknown
-            wp_send_json([
-                'ok' => false,
-                'message' => 'Unexpected verify response type.',
-            ]);
-
-        } catch (\Throwable $e) {
-            wp_send_json(['ok' => false, 'verify_result' => false, 'message' => 'Error: ' . $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Mass actions endpoint for selected entries (calculate/buy/print/complete).
-     */
-    public static function ajax_handle_mass_action(): void {
-        if ( ! is_user_logged_in() ) {
-            wp_send_json_error(['message' => 'Not logged in.']);
-        }
-        if ( ! current_user_can('manage_options') ) {
-            wp_send_json_error(['message' => 'Insufficient permissions.']);
-        }
+        if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
+        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
 
         $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
-        if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) {
-            wp_send_json_error(['message' => 'Bad nonce.']);
-        }
+        if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
 
-        if ( ! class_exists('FrmEasypostLabelHelper') ) {
-            wp_send_json_error(['message' => 'FrmEasypostLabelHelper not loaded.']);
-        }
+        $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+        if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
 
-        $do = isset($_POST['do']) ? sanitize_text_field((string) $_POST['do']) : '';
-        $allowed = ['calculate','buy','print','complete'];
-        if ( ! in_array($do, $allowed, true) ) {
-            wp_send_json_error(['message' => 'Unknown action.']);
-        }
-
-        $carrier = isset($_POST['carrier']) ? sanitize_text_field((string) $_POST['carrier']) : 'fedex';
-        $carrier = in_array($carrier, ['fedex','usps'], true) ? $carrier : 'fedex';
-
-        $entry_ids = isset($_POST['entry_ids']) ? (array) $_POST['entry_ids'] : [];
-        $ids = [];
-        foreach ($entry_ids as $id) {
-            $id = (int) $id;
-            if ($id > 0) { $ids[] = $id; }
-        }
-        $ids = array_values(array_unique($ids));
-
-        if (empty($ids)) {
-            wp_send_json_error(['message' => 'No entries selected.']);
-        }
-
-        $helper = new FrmEasypostLabelHelper();
-
-        // Change names to match your helper methods
-        $method_map = [
-            'calculate'  => 'massCalculateEntries',
-            'buy'        => 'massBuyLabels',
-            'print'      => 'massPrintLabels',
-            'complete'   => 'massCompleteEntries',
-        ];
-
-        $method = $method_map[$do] ?? '';
-        if ($method === '' || ! method_exists($helper, $method)) {
-            wp_send_json_error([
-                'message' => 'Action "' . $do . '" is not implemented in FrmEasypostLabelHelper (missing method ' . $method . ').'
-            ]);
-        }
-
-        try {
-            $out = $helper->{$method}($ids, $carrier);
-
-            $msg = 'Done: ' . $do . ' for ' . count($ids) . ' entries (' . strtoupper($carrier) . ').';
-            if (is_array($out) && isset($out['message']) && is_string($out['message'])) {
-                $msg = $out['message'];
-            }
-
-            wp_send_json_success([
-                'message' => $msg,
-                'result'  => $out,
-            ]);
-        } catch (\Throwable $e) {
-            wp_send_json_error(['message' => 'Error: ' . $e->getMessage()]);
-        }
+        wp_send_json(['ok' => true, 'message' => 'Verified']);
     }
+
+    public static function ajax_calculate_rates_for_entry(): void {
+        if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.', 'rates' => []]); }
+        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.', 'rates' => []]); }
+
+        $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+        if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.', 'rates' => []]); }
+
+        $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+        if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.', 'rates' => []]); }
+
+        $carrier = isset($_POST['carrier']) ? sanitize_text_field((string) $_POST['carrier']) : '';
+        if ( ! in_array($carrier, ['fedex', 'usps'], true) ) {
+            $carrier = ''; // or default, e.g. 'fedex'
+        }
+
+        // Calculate rates via helper, API request inside
+        $entryHelper = new FrmEasypostEntryHelper();
+        $rates = $entryHelper->calculateRatesByEntry(
+          $entry_id,
+          [ 'carrier' => $carrier ],
+          [ 'rate' => 'asc' ]
+        );
+
+        // Expected rate item:
+        // [ 'id' => 'rate_x', 'shipment_id' => 'shp_x', 'label' => '...' ]
+        wp_send_json(['ok' => true, 'message' => 'Rates calculated.', 'rates' => $rates]);
+    }
+
+    public static function ajax_buy_label_for_entry(): void {
+
+        if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
+        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
+
+        $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+        if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
+
+        $entry_id    = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+        $shipment_id = isset($_POST['shipment_id']) ? sanitize_text_field((string) $_POST['shipment_id']) : '';
+        $rate_id     = isset($_POST['rate_id']) ? sanitize_text_field((string) $_POST['rate_id']) : '';
+
+        if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
+        if ($shipment_id === '') { wp_send_json(['ok' => false, 'message' => 'Missing shipment_id.']); }
+        if ($rate_id === '') { wp_send_json(['ok' => false, 'message' => 'Rate is not chosen']); }
+
+        if (!$shipment_id || !$rate_id) wp_send_json_error(['message' => 'Missing shipment or rate.']);
+    
+        try {
+            $shipmentApi = new FrmEasypostShipmentApi();
+    
+            // Buy label by API
+            $label = $shipmentApi->buyLabel($shipment_id, $rate_id);
+    
+            if (empty($label) || !is_array($label)) {
+                wp_send_json_error(['ok' => false, 'message' => 'Empty response from label API.']);
+            }
+    
+            // Update Shipment by API
+            $shipmentHelper = new FrmEasypostShipmentHelper();
+            $shipmentData = $shipmentHelper->updateShipmentApi($shipment_id );
+    
+            wp_send_json_success([
+                'ok' => true,
+                'message' => 'Label bought successfully.',
+                'data'   => $shipmentData,
+            ]);
+            
+        } catch (Throwable $e) {
+            wp_send_json_error(['ok'=> false, 'message' => 'API error: '.$e->getMessage()]);
+        }
+
+    }
+
+    public static function ajax_set_complete_entry(): void {
+        if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
+        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
+
+        $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+        if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
+
+        $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+        if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
+
+        wp_send_json(['ok' => true, 'message' => 'Completed']);
+    }
+
+    // ---------------- HELPERS ----------------
 
     private static function processing_label(string $raw): string {
         $raw = trim($raw);
@@ -867,14 +1167,9 @@ async function runVerifySequential(){
     }
 
     private static function meta_val(array $metas, int $field_id): string {
-        if (!isset($metas[$field_id])) {
-            return '';
-        }
+        if (!isset($metas[$field_id])) { return ''; }
         $v = $metas[$field_id];
-
-        if (is_array($v)) {
-            $v = $v[0] ?? '';
-        }
+        if (is_array($v)) { $v = $v[0] ?? ''; }
         return is_scalar($v) ? (string) $v : '';
     }
 
@@ -892,15 +1187,10 @@ async function runVerifySequential(){
         if (!empty($parsed['query'])) {
             parse_str($parsed['query'], $query);
         }
-
-        foreach ($remove_keys as $k) {
-            unset($query[$k]);
-        }
+        foreach ($remove_keys as $k) { unset($query[$k]); }
 
         $base = home_url($path);
-        if (!empty($query)) {
-            $base = add_query_arg($query, $base);
-        }
+        if (!empty($query)) { $base = add_query_arg($query, $base); }
         return $base;
     }
 }
