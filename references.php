@@ -10,3 +10,18 @@ const FRM_EP_ENTRY_ADDRESS_FIELDS = [
     'zip'       => 41,
     'phone'     => 248,
 ];
+
+const FRM_EP_PROC_TIME_FIELDS = [
+    'standard' => [
+        'id' => 145,
+        'label' => 'Standard',
+    ],
+    'expedited' => [
+        'id' => 175,
+        'label' => 'Expedited',
+    ],
+    'rushed' => [
+        'id' => 375,
+        'label' => 'Rushed',
+    ]
+];
