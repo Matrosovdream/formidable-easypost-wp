@@ -219,13 +219,19 @@ class FrmEasypostEntryHelper {
         $fieldValues['country'] = 'US';
         $fieldValues['is_user_address'] = true;
 
+        // Trim all $fieldValues
+        foreach( $fieldValues as $k => $v ) {
+            $fieldValues[$k] = trim( (string)$v );
+        }
+
         // Combined
         $combinedAddress = [];
-        $combinedAddress[] = $fieldValues['street1'] ?? '';
-        $combinedAddress[] = $fieldValues['street2'] ?? '';
-        $combinedAddress[] = $fieldValues['city'] ?? '';
-        $combinedAddress[] = $fieldValues['state'] ?? '';
-        $combinedAddress[] = $fieldValues['zip'] ?? '';
+        if (!empty($fieldValues['street1']) || !empty($fieldValues['street2'])) {
+            $combinedAddress[] = trim($fieldValues['street1'] . ' ' . $fieldValues['street2']);
+        }
+        if (!empty($fieldValues['city']) || !empty($fieldValues['state']) || !empty($fieldValues['zip'])) {
+            $combinedAddress[] = trim($fieldValues['city'] . ' ' . $fieldValues['state'] . ' ' . $fieldValues['zip']);
+        }
 
         // Exclude empty parts
         $combinedAddress = array_filter($combinedAddress, fn($part) => trim($part) !== '');
@@ -245,6 +251,17 @@ class FrmEasypostEntryHelper {
             $resp = $smartyApi->verifyAddress($address, true);
     
             if (is_array($resp) && !empty($resp['status']) && $resp['status'] === 'verified') {
+
+                // Set payload address
+                $resp['normalized']['input_address'] = $address['combined'] ?? '';
+
+                // Check if $address['combined'] matches verified address?
+                if( $resp['normalized']['full_address'] == $address['combined'] ) {
+                    $resp['normalized']['matched'] = true;
+                } else {
+                    $resp['normalized']['matched'] = false;
+                }
+
                 return [
                     'ok'         => true,
                     'status'     => 'verified',
