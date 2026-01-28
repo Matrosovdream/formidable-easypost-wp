@@ -11,15 +11,15 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_FLAGS           = 273;
     private const FIELD_PHOTO_NO        = 328;
     private const FIELD_PHOTO_DONE      = 670;
-    private const FIELD_NATIONAL_TRACK  = 344;
     private const FIELD_PROCESSING_TIME = 211;
     private const FIELD_MAILING_ADDRESS = 37;
+    private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframe/';
 
     /** Processing time values (field 211) */
     // Dev
-    private const PT_STANDARD  = 145;
-    private const PT_EXPEDITED = 195;
-    private const PT_RUSH      = 395;
+    private const PT_STANDARD  = FRM_EP_PROC_TIME_FIELDS['standard']['id'];
+    private const PT_EXPEDITED = FRM_EP_PROC_TIME_FIELDS['expedited']['id'];
+    private const PT_RUSH      = FRM_EP_PROC_TIME_FIELDS['rushed']['id'];
 
     /** Default pagination */
     private const DEFAULT_PER_PAGE = 20;
@@ -187,19 +187,20 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
         // Table (your latest header changes + rename Photos => Features)
         echo '<div class="table-responsive">';
-        echo '<table class="table table-sm table-striped align-middle">';
+        echo '<table class="table table-sm table-striped align-middle table-listing">';
         echo '<thead class="table-light">';
         echo '<tr>';
-        echo '<th style="width:48px;" class="text-center">';
+        echo '<th style="width:40px;" class="text-center">';
         echo '<input type="checkbox" class="form-check-input" id="ffda_select_all" aria-label="Select all">';
         echo '</th>';
         echo '<th style="width:40px;">ID</th>';
-        echo '<th style="width:180px;">Created</th>';
-        echo '<th style="width:220px;">Service (12)</th>';
+        echo '<th style="width:140px;">Created</th>';
+        echo '<th style="width:180px;">Service (12)</th>';
         echo '<th style="width:140px;">Features</th>';
-        echo '<th style="width:200px;">Mailing address</th>';
+        echo '<th style="width:400px;">Mailing address</th>';
         echo '<th style="width:130px;">Proc time</th>';
         echo '<th style="width:350px;">Rates</th>';
+        echo '<th style="width:200px;">Labels</th>';
         echo '<th style="width:110px;" class="text-end"></th>';
         echo '</tr>';
         echo '</thead>';
@@ -211,14 +212,28 @@ final class FrmEasypostLabelsMassbuyListShortcode {
             foreach ($items as $entry) {
                 if ( ! is_object($entry) || empty($entry->id) ) { continue; }
 
-                $id = (int) $entry->id;
-                $created = isset($entry->created_at) ? (string) $entry->created_at : '';
-                $created = $created !== '' ? date('Y-m-d H:i', strtotime($created)) : '';
+                // Get shipments for the entry
+                $shipments = self::getEntryShipments( $entry->id );
 
+                $delivered = (int) ($shipments['stats']['delivered'] ?? 0);
+                $refunded  = (int) ($shipments['stats']['refunded'] ?? 0);
+
+
+                $id = (int) $entry->id;
+
+                // Prepare created date/time
+                $created = isset($entry->created_at) ? (string) $entry->created_at : '';
+                $created = date('Y-m-d H:i', strtotime($created));
+                [$createdDate, $createdTime] = explode(' ', $created . ' ');
+
+                // Get all metas
                 $metas = isset($entry->metas) && is_array($entry->metas) ? $entry->metas : [];
 
+                // Get service and processing time
                 $service_val = self::meta_val($metas, self::FIELD_SERVICE);
                 $proc_211    = self::meta_val($metas, self::FIELD_PROCESSING_TIME);
+
+                $photo_done = self::meta_val($metas, self::FIELD_PHOTO_DONE);
 
                 $mailing_addr = $entryHelper
                     ? $entryHelper->getEntryAddressFields($id)
@@ -228,32 +243,83 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                     ? '<span class="badge text-bg-success">photo-done</span>'
                     : '<span class="badge text-bg-secondary">photo-no</span>';
 
-                $proc_label = self::processing_label($proc_211);
-                $proc_badge = $proc_label !== ''
-                    ? '<span class="badge text-bg-info">' . esc_html($proc_label) . '</span>'
-                    : '<span class="text-muted">-</span>';
+                    $proc_label = self::processing_label($proc_211);
+
+                    $proc_class = 'text-bg-info'; // default = Standard (blue)
+                    
+                    if ($proc_label === 'Expedited') {
+                        $proc_class = 'text-bg-warning'; // orange
+                    } elseif ($proc_label === 'Rush') {
+                        $proc_class = 'text-bg-danger'; // red
+                    }
+                    
+                    $proc_badge = $proc_label !== ''
+                        ? '<span class="badge ' . esc_attr($proc_class) . '">' . esc_html($proc_label) . '</span>'
+                        : '<span class="text-muted">-</span>';
+                    
 
                 $order_url = home_url('/orders/entry/' . $id . '/?order=' . $id);
+
+                $photo_iframe_url = SELF::PHOTO_IFRAME_URL . '?order=' . $id;
 
                 echo '<tr data-entry-id="' . esc_attr((string)$id) . '">';
                 echo '<td class="text-center">';
                 echo '<input type="checkbox" class="form-check-input ffda-entry-check" name="ffda_entries[]" value="' . esc_attr((string)$id) . '" aria-label="Select entry ' . esc_attr((string)$id) . '">';
                 echo '</td>';
                 echo '<td><strong>' . esc_html((string) $id) . '</strong></td>';
-                echo '<td class="small">' . esc_html($created ?: '-') . '</td>';
+                echo '<td>' . esc_html($createdDate) . '<br/>' .$createdTime. '</td>';
                 echo '<td>' . esc_html($service_val ?: '-') . '</td>';
 
                 // ✅ Features column (was Photos)
-                echo '<td class="ffda-features-cell">' . $photo_badge . '</td>';
+                echo '<td class="ffda-features-cell">' . $photo_badge;
+                if( $photo_done == 'photo-done' ) {
+                  echo '<iframe src="'.$photo_iframe_url.'" width="150" height="150" scrolling="no" style="margin-top: 10px"></iframe>';
+                } 
+                echo '</td>';
 
                 echo '<td class="ffda-mailing-addr-cell">' . esc_html($mailing_addr['combined'] ?? '-') . '</td>';
 
                 echo '<td>' . $proc_badge . '</td>';
 
-                // Rates placeholder
+                // Rates
                 echo '<td class="ffda-rates-cell"><span class="ffda-rates-placeholder"></span></td>';
 
+                // Labels (NEW)
+                echo '<td class="ffda-labels-cell small">';
+                echo '<div>Delivered: <strong>' . esc_html((string)$delivered) . '</strong></div>';
+
+                $refund_class = $refunded > 0 ? 'ffda-refunded-alert' : '';
+                echo '<div class="' . esc_attr($refund_class) . '">
+                        Refunded: <strong>' . esc_html((string)$refunded) . '</strong>
+                      </div>';
+
+                echo '<button type="button"
+                    class="btn btn-outline-secondary btn-sm mt-1 ffda-show-shipments"
+                    data-entry-id="' . esc_attr((string)$id) . '"
+                    onclick="toggleShipments(this)">
+                    Show all
+                    </button>';
+
+                echo '<div class="easypost-shipments-container" style="display:none;">';
+                echo do_shortcode('[easypost-shipments entry=' . esc_attr((string)$id) . ']');
+                echo '</div>';
+
+                echo '<script>
+                  function toggleShipments(button) {
+                    var container = button.nextElementSibling;
+                    if (container.style.display === "none") {
+                      container.style.display = "block";
+                      button.textContent = "Hide all";
+                    } else {
+                      container.style.display = "none";
+                      button.textContent = "Show all";
+                    }
+                  }
+                </script>';
+
+                // Open
                 echo '<td class="text-end"><a class="btn btn-outline-primary btn-sm" href="' . esc_url($order_url) . '" target="_blank" rel="noopener">Open</a></td>';
+
                 echo '</tr>';
             }
         }
@@ -289,26 +355,84 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<style>
             .ep-verify-status {
                 font-size: 12px;
-                display: block;
+                display: inline-block;
                 width: fit-content;
                 border: 1px solid green;
                 border-radius: 4px;
                 padding: 3px;
                 margin-top: 6px;
+                margin-right: 10px;
             }
             .ep-verify-status.ok{color:#0a7a2b}
             .ep-verify-status.err{color:#b00020;border:1px solid #b00020;}
+            .ep-normalized-block{
+              width: 100%;
+              max-width: 520px;
+              white-space: normal;
+            }
 
             .ffda-inline-msg { font-size: 12px; padding: 2px 6px; border-radius: 4px; display:inline-block; }
             .ffda-inline-msg.ok { color:#0a7a2b; border:1px solid #0a7a2b; }
             .ffda-inline-msg.err { color:#b00020; border:1px solid #b00020; }
 
             .label-printed-tag { margin-left: 6px; }
+
+            .table-listing {
+                font-size: 14px;
+            }
+            .table-listing td, .table-listing th {
+                padding: 10px 15px!important;
+            }
+                .ffda-refunded-alert {
+  color: #b00020;
+  font-weight: 700;
+}
         </style>';
 
         echo '</div>';
 
         return (string) ob_get_clean();
+    }
+
+    private static function getEntryShipments( int $entry_id ): array {
+        
+      $model     = new FrmEasypostShipmentModel();
+      $shipments = $model->getAllByEntryId( $entry_id );
+
+      // Collect stats
+      $stats = [
+        'total' => count( $shipments ),
+        'voided' => 0,
+        'refunded' => 0,
+        'delivered' => 0,
+      ];
+
+      foreach ( $shipments as $s ) {
+          
+        if ( isset( $s['status'] ) ) {
+
+          $status = strtolower( (string) $s['status'] );
+          if ( $status === 'voided' ) {
+            $stats['voided']++;
+          } elseif ( $status === 'delivered' ) {
+            $stats['delivered']++;
+          }
+
+        }
+
+        if( !empty( $s['refund_status'] ) ) {
+          $stats['refunded']++;
+        }
+
+      }
+
+      $data = [
+        'stats'     => $stats,
+        'shipments' => $shipments,
+      ];
+
+      return $data;
+
     }
 
     /**
@@ -468,7 +592,28 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     return el;
   }
 
+  function ensureMatchBadge(container){
+    var el = container.querySelector(".ep-match-status");
+    if(!el){
+      el = document.createElement("span");
+      el.className = "ep-verify-status ep-match-status";
+      container.appendChild(el);
+    }
+    return el;
+  }
+
+  function ensureNormalizedBlock(container){
+    var el = container.querySelector(".ep-normalized-block");
+    if(!el){
+      el = document.createElement("div");
+      el.className = "ep-verify-status ok ep-normalized-block";
+      container.appendChild(el);
+    }
+    return el;
+  }
+
   function renderVerifyResult(cell, payload){
+    // 1) Verified badge (existing)
     var badge = ensureVerifyBadge(cell);
 
     var ok = !!(payload && payload.ok);
@@ -481,7 +626,31 @@ final class FrmEasypostLabelsMassbuyListShortcode {
       badge.className = "ep-verify-status err";
       badge.textContent = "✗ " + (msg || "Address not verified.");
     }
+
+    // 2) Matched / Not matched badge (NEW)
+    var matched = false;
+    if(payload && typeof payload.matched_addresses !== "undefined"){
+      matched = !!payload.matched_addresses;
+    }
+
+    var matchBadge = ensureMatchBadge(cell);
+    if(matched){
+      matchBadge.className = "ep-verify-status ok ep-match-status";
+      matchBadge.textContent = "Matched";
+    } else {
+      matchBadge.className = "ep-verify-status err ep-match-status";
+      matchBadge.textContent = "Not matched";
+    }
+
+    // 3) Normalized address block (NEW)
+    var normalized = (payload && payload.normalized_address) ? String(payload.normalized_address) : "";
+    if(normalized){
+      var normBlock = ensureNormalizedBlock(cell);
+      normBlock.className = "ep-verify-status ok ep-normalized-block";
+      normBlock.innerHTML = "<strong>Normalized:</strong><br/>" + normalized;
+    }
   }
+
 
   // ✅ Update: option stores rate_id + shipment_id (as data-attr)
   // ✅ Update: first rate auto-selected
@@ -1067,7 +1236,29 @@ JS;
         $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
         if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
 
-        wp_send_json(['ok' => true, 'message' => 'Verified']);
+        // Verify by API
+        $entryHelper = new FrmEasypostEntryHelper();
+        $verifyRes = $entryHelper->verifyEntryAddress($entry_id);
+
+        if( $verifyRes['status'] == 'verified' ) {
+          $verified = true;
+          $message = 'Address verified';
+        } else {
+          $verified = false;
+          $message = $verifyRes['message'] ?? 'Address not verified';
+        }
+
+        $res = [
+            'ok' => $verified,
+            'verified' => $verified,
+            'message' => $message,
+            'normalized_address' => $verifyRes['normalized']['full_address'] ?? '',
+            'input_address' => $verifyRes['normalized']['input_address'] ?? '',
+            'matched_addresses' => $verifyRes['normalized']['matched'] ?? '',
+            'data' => $verifyRes,
+        ];
+
+        wp_send_json( $res );
     }
 
     public static function ajax_calculate_rates_for_entry(): void {
@@ -1135,7 +1326,7 @@ JS;
                 'message' => 'Label bought successfully.',
                 'data'   => $shipmentData,
             ]);
-            
+
         } catch (Throwable $e) {
             wp_send_json_error(['ok'=> false, 'message' => 'API error: '.$e->getMessage()]);
         }
@@ -1152,8 +1343,80 @@ JS;
         $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
         if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
 
+        self::frm_add_label_printed_status($entry_id, self::FIELD_FLAGS);
+
         wp_send_json(['ok' => true, 'message' => 'Completed']);
     }
+
+    /**
+     * Ensure "photo-printed" status exists in Formidable meta field
+     *
+     * @param int $entry_id
+     * @param int $field_id
+     * @return bool
+     */
+    public static function frm_add_label_printed_status(int $entry_id, int $field_id): bool {
+      global $wpdb;
+
+      $table = $wpdb->prefix . 'frm_item_metas';
+
+      // Get existing meta
+      $row = $wpdb->get_row(
+          $wpdb->prepare(
+              "SELECT id, meta_value
+              FROM {$table}
+              WHERE item_id = %d AND field_id = %d
+              LIMIT 1",
+              $entry_id,
+              $field_id
+          )
+      );
+
+      // Default empty array
+      $values = [];
+
+      if ($row && ! empty($row->meta_value)) {
+          $unserialized = maybe_unserialize($row->meta_value);
+
+          if (is_array($unserialized)) {
+              $values = $unserialized;
+          }
+      }
+
+      // Already exists → do nothing
+      if (in_array('label-printed', $values, true)) {
+          return true;
+      }
+
+      // Add value
+      $values[] = 'label-printed';
+      $serialized = maybe_serialize(array_values($values));
+
+      // Update or insert
+      if ($row) {
+          $wpdb->update(
+              $table,
+              [ 'meta_value' => $serialized ],
+              [ 'id' => (int) $row->id ],
+              [ '%s' ],
+              [ '%d' ]
+          );
+      } else {
+          $wpdb->insert(
+              $table,
+              [
+                  'item_id'    => $entry_id,
+                  'field_id'   => $field_id,
+                  'meta_value' => $serialized,
+                  'created_at' => current_time('mysql'),
+              ],
+              [ '%d', '%d', '%s', '%s' ]
+          );
+      }
+
+      return true;
+    }
+
 
     // ---------------- HELPERS ----------------
 
