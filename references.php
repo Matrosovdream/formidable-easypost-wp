@@ -25,3 +25,21 @@ const FRM_EP_PROC_TIME_FIELDS = [
         'label' => 'Rushed',
     ]
 ];
+
+// closest_address, entry_address, passport_service
+const FRM_EP_LABEL_DIRECTION_TYPES = [
+    'national_passport' => [
+      'label' => 'National Passport',
+      'addresses' => [
+        'from' => 'entry_address',
+        'to'   => 'closest_address',
+      ]
+    ],
+    'service_client' => [
+      'label' => 'Service / Client',
+      'addresses' => [
+        'from' => 'passport_service',
+        'to'   => 'entry_address',
+      ]
+    ],
+];

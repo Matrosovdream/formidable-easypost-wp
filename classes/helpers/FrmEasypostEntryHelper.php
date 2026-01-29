@@ -224,20 +224,28 @@ class FrmEasypostEntryHelper {
             $fieldValues[$k] = trim( (string)$v );
         }
 
-        // Combined
+        // Combined address line
+        $fieldValues['combined'] = $this->prepareCombinedAddress( $fieldValues );
+
+        return $fieldValues;
+
+    }
+
+    public function prepareCombinedAddress( array $addressFields ): string {
+
         $combinedAddress = [];
-        if (!empty($fieldValues['street1']) || !empty($fieldValues['street2'])) {
-            $combinedAddress[] = trim($fieldValues['street1'] . ' ' . $fieldValues['street2']);
+        if (!empty($addressFields['street1']) || !empty($addressFields['street2'])) {
+            $combinedAddress[] = trim($addressFields['street1'] . ' ' . $addressFields['street2']);
         }
-        if (!empty($fieldValues['city']) || !empty($fieldValues['state']) || !empty($fieldValues['zip'])) {
-            $combinedAddress[] = trim($fieldValues['city'] . ' ' . $fieldValues['state'] . ' ' . $fieldValues['zip']);
+        if (!empty($addressFields['city']) || !empty($addressFields['state']) || !empty($addressFields['zip'])) {
+            $combinedAddress[] = trim($addressFields['city'] . ' ' . $addressFields['state'] . ' ' . $addressFields['zip']);
         }
 
         // Exclude empty parts
         $combinedAddress = array_filter($combinedAddress, fn($part) => trim($part) !== '');
-        $fieldValues['combined'] = implode(', ', $combinedAddress);
+        $resLine = implode(', ', $combinedAddress);
 
-        return $fieldValues;
+        return $resLine;
 
     }
 
@@ -396,18 +404,39 @@ class FrmEasypostEntryHelper {
      *
      * @return array An array of calculated shipping rates.
      */
-    public function calculateRatesByEntry( int $entry_id, array $filters, array $sorting ): array {
+    public function calculateRatesByEntry( int $entry_id, array $filters, array $sorting, string $labelDirection='' ) {
+
+        // From /references.php
+        $labelDirectionTypes = FRM_EP_LABEL_DIRECTION_TYPES;
 
 
         // Get all entry addresses
         $addresses = $this->getEntryAddresses( $entry_id );
 
-        // Prepare payload for calculate rates
+        // Prepare payload for calculate rates, by default
         $ratesPayload = [
             'entry_id' => $entry_id,
             'from_address' => $addresses['closest_address'] ?? [],
             'to_address'   => $addresses['entry_address'] ?? [],
         ];
+
+        if( !empty($labelDirection) ) {
+            
+            $labelDirection = $labelDirectionTypes[$labelDirection] ?? null;
+            if( $labelDirection ) {
+
+                $labelDirectionAdresses = $labelDirection['addresses'];
+
+                $ratesPayload['from_address'] = $addresses[ $labelDirectionAdresses['from'] ];
+                $ratesPayload['to_address'] = $addresses[ $labelDirectionAdresses['to'] ];
+
+                // Combined address lines
+                $ratesPayload['from_address']['combined'] = $this->prepareCombinedAddress( $ratesPayload['from_address'] );
+                $ratesPayload['to_address']['combined']   = $this->prepareCombinedAddress( $ratesPayload['to_address'] );
+
+            }
+
+        }
 
         // Calculate rates by API
         $rateHelper = new FrmEasypostRateHelper();
@@ -449,7 +478,14 @@ class FrmEasypostEntryHelper {
 
         }
 
-        return $rates;
+        return [
+            'entry_id' => $entry_id,
+            'rates' => $rates,
+            'addresses' => [
+                'from' => $ratesPayload['from_address'] ?? [],
+                'to'   => $ratesPayload['to_address'] ?? [],
+            ]
+        ];
 
     }
 

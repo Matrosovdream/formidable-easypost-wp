@@ -14,6 +14,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_PROCESSING_TIME = 211;
     private const FIELD_MAILING_ADDRESS = 37;
     private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframe/';
+    private const PAGE_PRINT_LABELS_URL = 'labels-mass-buy-print/';
+
 
     /** Processing time values (field 211) */
     // Dev
@@ -22,7 +24,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const PT_RUSH      = FRM_EP_PROC_TIME_FIELDS['rushed']['id'];
 
     /** Default pagination */
-    private const DEFAULT_PER_PAGE = 20;
+    private const DEFAULT_PER_PAGE = 10;
 
     /** Service groups */
     private const SERVICES_ONE_LABEL = [
@@ -163,7 +165,13 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
         ob_start();
 
-        echo '<div class="ffda-massbuy-list" data-ajax-url="' . esc_attr($ajax_url) . '" data-ajax-nonce="' . esc_attr($nonce) . '">';
+        $print_url = home_url(self::PAGE_PRINT_LABELS_URL);
+
+        echo '<div class="ffda-massbuy-list"
+                data-ajax-url="' . esc_attr($ajax_url) . '"
+                data-ajax-nonce="' . esc_attr($nonce) . '"
+                data-print-url="' . esc_attr($print_url) . '">';
+
 
         self::render_filters([
             'photo' => $photo_mode,
@@ -185,7 +193,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</div>';
         echo '</div>';
 
-        // Table (your latest header changes + rename Photos => Features)
+        // Table
         echo '<div class="table-responsive">';
         echo '<table class="table table-sm table-striped align-middle table-listing">';
         echo '<thead class="table-light">';
@@ -213,11 +221,10 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 if ( ! is_object($entry) || empty($entry->id) ) { continue; }
 
                 // Get shipments for the entry
-                $shipments = self::getEntryShipments( $entry->id );
+                $shipments = self::getEntryShipments( (int) $entry->id );
 
                 $delivered = (int) ($shipments['stats']['delivered'] ?? 0);
                 $refunded  = (int) ($shipments['stats']['refunded'] ?? 0);
-
 
                 $id = (int) $entry->id;
 
@@ -243,55 +250,48 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                     ? '<span class="badge text-bg-success">photo-done</span>'
                     : '<span class="badge text-bg-secondary">photo-no</span>';
 
-                    $proc_label = self::processing_label($proc_211);
+                $proc_label = self::processing_label($proc_211);
+                $proc_class = 'text-bg-info';
+                if ($proc_label === 'Expedited') {
+                    $proc_class = 'text-bg-warning';
+                } elseif ($proc_label === 'Rush') {
+                    $proc_class = 'text-bg-danger';
+                }
 
-                    $proc_class = 'text-bg-info'; // default = Standard (blue)
-                    
-                    if ($proc_label === 'Expedited') {
-                        $proc_class = 'text-bg-warning'; // orange
-                    } elseif ($proc_label === 'Rush') {
-                        $proc_class = 'text-bg-danger'; // red
-                    }
-                    
-                    $proc_badge = $proc_label !== ''
-                        ? '<span class="badge ' . esc_attr($proc_class) . '">' . esc_html($proc_label) . '</span>'
-                        : '<span class="text-muted">-</span>';
-                    
+                $proc_badge = $proc_label !== ''
+                    ? '<span class="badge ' . esc_attr($proc_class) . '">' . esc_html($proc_label) . '</span>'
+                    : '<span class="text-muted">-</span>';
 
                 $order_url = home_url('/orders/entry/' . $id . '/?order=' . $id);
-
-                $photo_iframe_url = SELF::PHOTO_IFRAME_URL . '?order=' . $id;
+                $photo_iframe_url = self::PHOTO_IFRAME_URL . '?order=' . $id;
 
                 echo '<tr data-entry-id="' . esc_attr((string)$id) . '">';
                 echo '<td class="text-center">';
                 echo '<input type="checkbox" class="form-check-input ffda-entry-check" name="ffda_entries[]" value="' . esc_attr((string)$id) . '" aria-label="Select entry ' . esc_attr((string)$id) . '">';
                 echo '</td>';
                 echo '<td><strong>' . esc_html((string) $id) . '</strong></td>';
-                echo '<td>' . esc_html($createdDate) . '<br/>' .$createdTime. '</td>';
+                echo '<td>' . esc_html($createdDate) . '<br/>' . esc_html($createdTime) . '</td>';
                 echo '<td>' . esc_html($service_val ?: '-') . '</td>';
 
-                // ✅ Features column (was Photos)
+                // Features
                 echo '<td class="ffda-features-cell">' . $photo_badge;
-                if( $photo_done == 'photo-done' ) {
-                  echo '<iframe src="'.$photo_iframe_url.'" width="150" height="150" scrolling="no" style="margin-top: 10px"></iframe>';
-                } 
+                if ( $photo_done === 'photo-done' ) {
+                    echo '<iframe src="' . esc_url($photo_iframe_url) . '" width="150" height="150" scrolling="no" style="margin-top: 10px"></iframe>';
+                }
                 echo '</td>';
 
-                echo '<td class="ffda-mailing-addr-cell">' . esc_html($mailing_addr['combined'] ?? '-') . '</td>';
-
+                echo '<td class="ffda-mailing-addr-cell"><p style="margin-bottom: 0;">' . esc_html($mailing_addr['combined'] ?? '-') . '</p></td>';
                 echo '<td>' . $proc_badge . '</td>';
 
                 // Rates
                 echo '<td class="ffda-rates-cell"><span class="ffda-rates-placeholder"></span></td>';
 
-                // Labels (NEW)
+                // Labels
                 echo '<td class="ffda-labels-cell small">';
-                echo '<div>Delivered: <strong>' . esc_html((string)$delivered) . '</strong></div>';
+                echo '<div>Active: <strong>' . esc_html((string)$delivered) . '</strong></div>';
 
                 $refund_class = $refunded > 0 ? 'ffda-refunded-alert' : '';
-                echo '<div class="' . esc_attr($refund_class) . '">
-                        Refunded: <strong>' . esc_html((string)$refunded) . '</strong>
-                      </div>';
+                echo '<div class="' . esc_attr($refund_class) . '">Refunded: <strong>' . esc_html((string)$refunded) . '</strong></div>';
 
                 echo '<button type="button"
                     class="btn btn-outline-secondary btn-sm mt-1 ffda-show-shipments"
@@ -330,19 +330,12 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<div class="alert alert-info mt-3 mb-2">';
         echo '<div class="fw-semibold mb-1">Form type groups mapping</div>';
         echo '<div class="small">';
-
-        echo '<div class="mb-2"><span class="badge text-bg-secondary me-2">DS11</span>';
-        echo esc_html(implode(', ', self::SERVICES_ONE_LABEL));
-        echo '</div>';
-
-        echo '<div><span class="badge text-bg-secondary me-2">DS82</span>';
-        echo esc_html(implode(', ', self::SERVICES_TWO_LABELS));
-        echo '</div>';
-
+        echo '<div class="mb-2"><span class="badge text-bg-secondary me-2">DS11</span>' . esc_html(implode(', ', self::SERVICES_ONE_LABEL)) . '</div>';
+        echo '<div><span class="badge text-bg-secondary me-2">DS82</span>' . esc_html(implode(', ', self::SERVICES_TWO_LABELS)) . '</div>';
         echo '</div>';
         echo '</div>';
 
-        echo '</div>';
+        echo '</div>'; // table-responsive
 
         self::render_selection_ui();
         self::render_pagination($current_page, $total_pages, [
@@ -377,25 +370,97 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
             .label-printed-tag { margin-left: 6px; }
 
-            .table-listing {
-                font-size: 14px;
+            .table-listing { font-size: 14px; }
+            .table-listing td, .table-listing th { padding: 10px 15px!important; }
+
+            .ffda-refunded-alert { color: #b00020; font-weight: 700; }
+
+            /* --- Confirm modal tweaks --- */
+            .ffda-confirm-backdrop{
+              position:fixed; inset:0; background:rgba(0,0,0,.45);
+              display:none; align-items:center; justify-content:center;
+              z-index: 99999;
+              padding: 18px;
             }
-            .table-listing td, .table-listing th {
-                padding: 10px 15px!important;
+            .ffda-confirm-box{
+              background:#fff; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+              width:100%; max-width:460px; padding:18px;
             }
-                .ffda-refunded-alert {
-  color: #b00020;
-  font-weight: 700;
-}
+            .ffda-confirm-title{ font-weight:700; font-size:16px; margin:0 0 8px; }
+            .ffda-confirm-text{ font-size:14px; margin:0 0 14px; color:#444; }
+            .ffda-confirm-actions{ display:flex; gap:10px; justify-content:flex-end; }
+
+            .ffda-rate-group { margin-bottom: 10px; }
+            .ffda-rate-group-title { font-weight: 700; margin-bottom: 6px; }
+
+            .ffda-print-backdrop{
+              position:fixed;
+              inset:0;
+              background:rgba(0,0,0,.55);
+              display:none;
+              align-items:center;
+              justify-content:center;
+              z-index: 99998;
+              padding: 12px;
+            }
+
+            .ffda-print-box{
+              width: 90vw;            /* ✅ requested 90% width */
+              max-width: 1400px;
+              height: 90vh;
+              background:#fff;
+              border-radius: 12px;
+              box-shadow: 0 10px 30px rgba(0,0,0,.25);
+              overflow:hidden;
+            }
+
+            .ffda-print-head{
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              gap: 10px;
+              padding: 10px 12px;
+              border-bottom: 1px solid #eee;
+            }
+
+            .ffda-print-title{
+              font-weight: 700;
+            }
+
         </style>';
 
-        echo '</div>';
+        // ✅ Confirmation modal HTML (used for Buy & Complete)
+        echo '
+        <div class="ffda-confirm-backdrop" id="ffda_confirm_modal" aria-hidden="true">
+          <div class="ffda-confirm-box" role="dialog" aria-modal="true" aria-labelledby="ffda_confirm_title">
+            <div class="ffda-confirm-title" id="ffda_confirm_title">Confirm</div>
+            <div class="ffda-confirm-text" id="ffda_confirm_text">Are you sure?</div>
+            <div class="ffda-confirm-actions">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="ffda_confirm_no">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="ffda_confirm_yes">Yes</button>
+            </div>
+          </div>
+        </div>';
+
+        echo '</div>'; // .ffda-massbuy-list
+
+        echo '
+        <div class="ffda-print-backdrop" id="ffda_print_modal" aria-hidden="true">
+          <div class="ffda-print-box" role="dialog" aria-modal="true" aria-label="Print labels">
+            <div class="ffda-print-head">
+              <div class="ffda-print-title">Print labels</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="ffda_print_close">Close</button>
+            </div>
+
+            <iframe id="ffda_print_iframe" src="about:blank" style="width:100%; height:calc(90vh - 52px); border:0;"></iframe>
+          </div>
+        </div>';
 
         return (string) ob_get_clean();
     }
 
     private static function getEntryShipments( int $entry_id ): array {
-        
+
       $model     = new FrmEasypostShipmentModel();
       $shipments = $model->getAllByEntryId( $entry_id );
 
@@ -408,31 +473,25 @@ final class FrmEasypostLabelsMassbuyListShortcode {
       ];
 
       foreach ( $shipments as $s ) {
-          
-        if ( isset( $s['status'] ) ) {
 
+        if ( isset( $s['status'] ) ) {
           $status = strtolower( (string) $s['status'] );
           if ( $status === 'voided' ) {
             $stats['voided']++;
           } elseif ( $status === 'delivered' ) {
             $stats['delivered']++;
           }
-
         }
 
-        if( !empty( $s['refund_status'] ) ) {
+        if ( ! empty( $s['refund_status'] ) ) {
           $stats['refunded']++;
         }
-
       }
 
-      $data = [
+      return [
         'stats'     => $stats,
         'shipments' => $shipments,
       ];
-
-      return $data;
-
     }
 
     /**
@@ -613,7 +672,6 @@ final class FrmEasypostLabelsMassbuyListShortcode {
   }
 
   function renderVerifyResult(cell, payload){
-    // 1) Verified badge (existing)
     var badge = ensureVerifyBadge(cell);
 
     var ok = !!(payload && payload.ok);
@@ -627,7 +685,6 @@ final class FrmEasypostLabelsMassbuyListShortcode {
       badge.textContent = "✗ " + (msg || "Address not verified.");
     }
 
-    // 2) Matched / Not matched badge (NEW)
     var matched = false;
     if(payload && typeof payload.matched_addresses !== "undefined"){
       matched = !!payload.matched_addresses;
@@ -636,13 +693,12 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     var matchBadge = ensureMatchBadge(cell);
     if(matched){
       matchBadge.className = "ep-verify-status ok ep-match-status";
-      matchBadge.textContent = "Matched";
+      matchBadge.textContent = "✓ Matched";
     } else {
       matchBadge.className = "ep-verify-status err ep-match-status";
-      matchBadge.textContent = "Not matched";
+      matchBadge.textContent = "✗ Not matched";
     }
 
-    // 3) Normalized address block (NEW)
     var normalized = (payload && payload.normalized_address) ? String(payload.normalized_address) : "";
     if(normalized){
       var normBlock = ensureNormalizedBlock(cell);
@@ -651,58 +707,298 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     }
   }
 
+  function runPrintSelected(){
+  clearAlert();
 
-  // ✅ Update: option stores rate_id + shipment_id (as data-attr)
-  // ✅ Update: first rate auto-selected
-  function renderRatesSelect(cell, rates, entryId){
+  var checked = getSelectedCheckboxes();
+  if(!checked.length){
+    showAlertDanger("Select entries first.");
+    setStatus("No entries selected.", "err");
+    return;
+  }
+
+  var baseUrl = wrap.getAttribute("data-print-url") || "";
+  if(!baseUrl){
+    showAlertDanger("Missing print URL (data-print-url).");
+    setStatus("Missing print URL.", "err");
+    return;
+  }
+
+  var shipmentIds = [];
+  var seen = {};
+
+  checked.forEach(function(cb){
+    var row = cb.closest("tr");
+    if(!row) return;
+
+    // all rate selects in this selected row (can be multiple groups)
+    var selects = qsa(".ffda-rate-select", row);
+
+    selects.forEach(function(sel){
+      if(!sel || !sel.selectedOptions || !sel.selectedOptions[0]) return;
+
+      // NOTE: shipment_id is stored on the selected OPTION
+      var shipmentId = sel.selectedOptions[0].getAttribute("data-shipment-id") || "";
+      shipmentId = String(shipmentId).trim();
+      if(!shipmentId) return;
+
+      // unique
+      if(!seen[shipmentId]){
+        seen[shipmentId] = true;
+        shipmentIds.push(shipmentId);
+      }
+    });
+  });
+
+  if(!shipmentIds.length){
+    showAlertDanger("No shipment_ids found in selected rows. Calculate first and ensure a rate is selected.");
+    setStatus("No shipment_ids found.", "err");
+    return;
+  }
+
+  // Param `shipment_ids` as CSV (URL-encoded)
+  var url = baseUrl;
+  url += (url.indexOf("?") >= 0 ? "&" : "?") + "shipment_ids=" + encodeURIComponent(shipmentIds.join(","));
+
+  window.open(url, "_blank", "noopener");
+  setStatus("Opening print page for " + shipmentIds.length + " shipment(s)...", "ok");
+}
+
+
+  function renderRatesSelect(cell, ratesByGroup, entryId){
     cell.innerHTML = "";
 
-    var sel = document.createElement("select");
-    sel.className = "form-select form-select-sm ffda-rate-select";
-    sel.setAttribute("data-entry-id", String(entryId));
+    // wrapper for all groups
+    var wrap = document.createElement("div");
+    wrap.className = "ffda-rates-wrap";
 
-    var opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = "Select rate…";
-    sel.appendChild(opt0);
+    // ratesByGroup is an object: { key: {group:{label,...}, rates:[...]}, ... }
+    var keys = [];
+    if(ratesByGroup && typeof ratesByGroup === "object"){
+      keys = Object.keys(ratesByGroup);
+    }
 
-    var firstSelectableIndex = -1;
+    if(!keys.length){
+      cell.innerHTML = '<span class="text-muted">-</span>';
+      return;
+    }
 
-    console.log(rates);
+    keys.forEach(function(k){
+      var block = ratesByGroup[k] || {};
+      var gmeta = block.group || {};
+      var groupLabel = gmeta.label ? String(gmeta.label) : String(k);
 
-    (rates || []).forEach(function(r, idx){
-      var o = document.createElement("option");
+      var ratesArr = Array.isArray(block.rates) ? block.rates : [];
 
-      var rateId = (r && r.id) ? String(r.id) : String(idx);
-      var label = (r && r.label) ? String(r.label) : ("Rate " + (idx+1));
-      var shipmentId = (r && r.shipment_id) ? String(r.shipment_id) : "";
+      // Title line: Group label
+      var title = document.createElement("div");
+      title.className = "ffda-rate-group-title";
+      title.textContent = groupLabel;
 
-      o.value = rateId;
-      o.textContent = label;
+      // Select
+      var sel = document.createElement("select");
+      sel.className = "form-select form-select-sm ffda-rate-select";
+      sel.setAttribute("data-entry-id", String(entryId));
+      sel.setAttribute("data-rate-group", String(k));         // ✅ which group is this select for
+      sel.setAttribute("data-group-label", groupLabel);       // optional, for UI/logging
 
-      if(shipmentId){
-        o.setAttribute("data-shipment-id", shipmentId);
-      }
+      var opt0 = document.createElement("option");
+      opt0.value = "";
+      opt0.textContent = "Select rate…";
+      sel.appendChild(opt0);
 
-      sel.appendChild(o);
+      var firstSelectableIndex = -1;
 
-      if(firstSelectableIndex === -1){
-        firstSelectableIndex = sel.options.length - 1; // after appending
+      ratesArr.forEach(function(r, idx){
+        var o = document.createElement("option");
+
+        var rateId = (r && r.id) ? String(r.id) : String(idx);
+        var label  = (r && r.label) ? String(r.label) : ("Rate " + (idx+1));
+        var shipmentId = (r && r.shipment_id) ? String(r.shipment_id) : "";
+
+        o.value = rateId;
+        o.textContent = label;
+
+        if(shipmentId){
+          o.setAttribute("data-shipment-id", shipmentId);
+        }
+
+        sel.appendChild(o);
+
+        if(firstSelectableIndex === -1){
+          firstSelectableIndex = sel.options.length - 1;
+        }
+      });
+
+      // Status area under THIS select
+      var st = document.createElement("div");
+      st.className = "ffda-buy-status mt-1";
+
+      // Group container
+      // Address toggle link
+  var addrLink = document.createElement("a");
+  addrLink.href = "#";
+  addrLink.className = "ffda-addr-toggle small d-inline-block mt-1";
+  addrLink.textContent = "Show addresses";
+  addrLink.setAttribute("data-open", "0");
+
+  // Addresses block (hidden by default)
+  var addrWrap = document.createElement("div");
+  addrWrap.className = "ffda-addr-block small";
+  addrWrap.style.display = "none";
+
+  // Read combined addresses from response
+  var addr = block.addresses || {};
+  var fromCombined = (addr.from && addr.from.combined) ? String(addr.from.combined) : "";
+  var toCombined   = (addr.to && addr.to.combined) ? String(addr.to.combined) : "";
+
+  addrWrap.innerHTML =
+    '<div><strong>From:</strong> ' + (fromCombined ? fromCombined : '-') + '</div>' +
+    '<div><strong>To:</strong> '   + (toCombined ? toCombined : '-') + '</div>';
+
+  // Group container
+  var groupBox = document.createElement("div");
+  groupBox.className = "ffda-rate-group";
+  groupBox.appendChild(title);
+  groupBox.appendChild(sel);
+  groupBox.appendChild(addrLink);
+  groupBox.appendChild(addrWrap);
+  groupBox.appendChild(st);
+
+  // Toggle handler (scoped per select)
+  addrLink.addEventListener("click", function(e){
+    e.preventDefault();
+    var isOpen = addrLink.getAttribute("data-open") === "1";
+    if(isOpen){
+      addrWrap.style.display = "none";
+      addrLink.textContent = "Show addresses";
+      addrLink.setAttribute("data-open", "0");
+    } else {
+      addrWrap.style.display = "block";
+      addrLink.textContent = "Hide addresses";
+      addrLink.setAttribute("data-open", "1");
+    }
+  });
+
+
+      wrap.appendChild(groupBox);
+
+      // Auto-select first real rate if exists
+      if(firstSelectableIndex > 0){
+        sel.selectedIndex = firstSelectableIndex;
+      } else {
+        // no rates in this group
+        sel.disabled = true;
+        st.innerHTML = '<span class="text-muted">No rates</span>';
       }
     });
 
-    cell.appendChild(sel);
-
-    // status area under select (buy success/error + tracking link)
-    var st = document.createElement("div");
-    st.className = "ffda-buy-status mt-1";
-    cell.appendChild(st);
-
-    // ✅ default select first item (if exists)
-    if(firstSelectableIndex > 0){
-      sel.selectedIndex = firstSelectableIndex;
-    }
+    cell.appendChild(wrap);
   }
+
+
+  var printModal  = qs("#ffda_print_modal");
+var printIframe = qs("#ffda_print_iframe");
+var printClose  = qs("#ffda_print_close");
+
+function openPrintModal(url){
+  if(!printModal || !printIframe){ return; }
+
+  printIframe.src = url || "about:blank";
+  printModal.style.display = "flex";
+  printModal.setAttribute("aria-hidden", "false");
+}
+
+function closePrintModal(){
+  if(!printModal || !printIframe){ return; }
+
+  printModal.style.display = "none";
+  printModal.setAttribute("aria-hidden", "true");
+  printIframe.src = "about:blank";
+}
+
+if(printClose){
+  printClose.addEventListener("click", closePrintModal);
+}
+if(printModal){
+  // click backdrop closes
+  printModal.addEventListener("click", function(e){
+    if(e && e.target === printModal){ closePrintModal(); }
+  });
+  // ESC closes
+  document.addEventListener("keydown", function(e){
+    if(e && e.key === "Escape" && printModal.style.display === "flex"){
+      closePrintModal();
+    }
+  });
+}
+
+
+
+  // ---------------- Confirmation modal helpers ----------------
+  var confirmModal = qs("#ffda_confirm_modal");
+  var confirmTitle = qs("#ffda_confirm_title");
+  var confirmText  = qs("#ffda_confirm_text");
+  var confirmYes   = qs("#ffda_confirm_yes");
+  var confirmNo    = qs("#ffda_confirm_no");
+
+  function hideConfirm(){
+    if(!confirmModal) return;
+    confirmModal.style.display = "none";
+    confirmModal.setAttribute("aria-hidden", "true");
+  }
+
+  function showConfirm(opts){
+    opts = opts || {};
+    return new Promise(function(resolve){
+      if(!confirmModal || !confirmYes || !confirmNo || !confirmTitle || !confirmText){
+        // fallback
+        resolve(window.confirm((opts && opts.text) ? String(opts.text) : "Are you sure?"));
+        return;
+      }
+
+      confirmTitle.textContent = (opts.title ? String(opts.title) : "Confirm");
+      confirmText.textContent  = (opts.text ? String(opts.text) : "Are you sure?");
+
+      var decided = false;
+
+      function cleanup(){
+        confirmYes.removeEventListener("click", onYes);
+        confirmNo.removeEventListener("click", onNo);
+        document.removeEventListener("keydown", onKey);
+        confirmModal.removeEventListener("click", onBackdropClick);
+      }
+
+      function done(val){
+        if(decided) return;
+        decided = true;
+        cleanup();
+        hideConfirm();
+        resolve(val);
+      }
+
+      function onYes(){ done(true); }
+      function onNo(){ done(false); }
+      function onKey(e){
+        if(!e) return;
+        if(e.key === "Escape"){ done(false); }
+        if(e.key === "Enter"){ done(true); }
+      }
+      function onBackdropClick(e){
+        if(e && e.target === confirmModal){ done(false); }
+      }
+
+      confirmYes.addEventListener("click", onYes);
+      confirmNo.addEventListener("click", onNo);
+      document.addEventListener("keydown", onKey);
+      confirmModal.addEventListener("click", onBackdropClick);
+
+      confirmModal.style.display = "flex";
+      confirmModal.setAttribute("aria-hidden", "false");
+    });
+  }
+
+  // ---------------- Actions ----------------
 
   async function runVerifySequential(){
     clearAlert();
@@ -810,6 +1106,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         form.append("action", "{$ajaxCalc}");
         form.append("nonce", nonce);
         form.append("entry_id", String(entryId));
+        form.append("group", getGroupValue());
 
         var carrier = (carrierSel && carrierSel.value) ? String(carrierSel.value) : "";
         form.append("carrier", carrier);
@@ -825,10 +1122,11 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
         var ok = !!payload.ok;
         var msg = payload.message ? String(payload.message) : "";
-        var rates = (payload.rates && Array.isArray(payload.rates)) ? payload.rates : null;
 
-        if(ok && rates && rates.length){
-          renderRatesSelect(ratesCell, rates, entryId);
+        var ratesObj = (payload && payload.rates && typeof payload.rates === "object") ? payload.rates : null;
+
+        if(ok && ratesObj && Object.keys(ratesObj).length){
+          renderRatesSelect(ratesCell, ratesObj, entryId);
         } else {
           if(!ok){
             showAlertDanger(msg || "Rates not found.");
@@ -836,6 +1134,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
           }
           ratesCell.innerHTML = '<span class="text-muted">-</span>';
         }
+
 
       } catch(err){
         var m = (err && err.message) ? err.message : "Network error";
@@ -855,11 +1154,22 @@ final class FrmEasypostLabelsMassbuyListShortcode {
   async function runBuySequential(){
     clearAlert();
 
-    // Buy goes through ALL rows that currently have rate selects
-    var selects = qsa(".ffda-rate-select", wrap);
+    var selects = qsa(".ffda-rate-select", wrap).filter(function(s){
+      return s && !s.disabled;
+    });
     if(selects.length === 0){
       showAlertDanger("No rate selects found. Click Calculate first.");
       setStatus("No rate selects found.", "err");
+      return;
+    }
+
+    // ✅ CONFIRM
+    var confirmed = await showConfirm({
+      title: "Confirm Buy",
+      text: "Buy labels for " + selects.length + " rate(s)? This will charge/purchase labels."
+    });
+    if(!confirmed){
+      setStatus("Buy cancelled.", "ok");
       return;
     }
 
@@ -876,7 +1186,6 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     for(var i=0; i<selects.length; i++){
       var sel = selects[i];
 
-      // already bought => skip
       if(sel.disabled){
         setStatus("Buying labels: " + (i+1) + " / " + selects.length, "ok");
         await sleep(500);
@@ -886,14 +1195,13 @@ final class FrmEasypostLabelsMassbuyListShortcode {
       var rateId = (sel.value || "").trim();
       var entryId = parseInt(sel.getAttribute("data-entry-id") || "0", 10);
 
-      // ✅ shipment_id comes from selected option data-shipment-id
       var shipmentId = "";
       if(sel && sel.selectedOptions && sel.selectedOptions[0]){
         shipmentId = sel.selectedOptions[0].getAttribute("data-shipment-id") || "";
       }
 
-      var cell = sel.closest(".ffda-rates-cell");
-      var statusBox = cell ? cell.querySelector(".ffda-buy-status") : null;
+      var groupBox = sel.closest(".ffda-rate-group");
+      var statusBox = groupBox ? groupBox.querySelector(".ffda-buy-status") : null;
 
       function setInlineMsg(type, text){
         if(!statusBox){ return; }
@@ -931,8 +1239,9 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         form.append("action", "{$ajaxBuy}");
         form.append("nonce", nonce);
         form.append("entry_id", String(entryId));
-        form.append("shipment_id", String(shipmentId)); // ✅ new
+        form.append("shipment_id", String(shipmentId));
         form.append("rate_id", rateId);
+        form.append("group", getGroupValue());
 
         var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
         var json = null;
@@ -950,7 +1259,6 @@ final class FrmEasypostLabelsMassbuyListShortcode {
           sel.disabled = true;
           setInlineMsg("ok", msg);
 
-          // If payload[data][tracking_url], show tracking url under select
           var trackingUrl = "";
           if(payload && payload.data && payload.data.tracking_url){
             trackingUrl = String(payload.data.tracking_url);
@@ -966,11 +1274,13 @@ final class FrmEasypostLabelsMassbuyListShortcode {
             a.href = trackingUrl;
             a.target = "_blank";
             a.rel = "noopener";
-            a.textContent = trackingUrl;
+            a.textContent = "Tracking url"; // ✅ requested text
 
             linkWrap.appendChild(a);
             statusBox.appendChild(linkWrap);
           }
+
+
         } else {
           setInlineMsg("err", msg);
         }
@@ -1002,12 +1312,30 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     featuresCell.appendChild(b);
   }
 
+  function getGroupValue(){
+    // from the filter select in the form
+    var el = qs('select[name="group"]', wrap) || qs('select[name="group"]');
+    var v = el && el.value ? String(el.value) : "";
+    return (v === "two") ? "two" : "one";
+  }
+
+
   async function runCompleteSequential(){
     clearAlert();
 
     var checked = getSelectedCheckboxes();
     if(checked.length === 0){
       setStatus("Select entries to enable actions.", "ok");
+      return;
+    }
+
+    // ✅ CONFIRM
+    var confirmed = await showConfirm({
+      title: "Confirm Complete",
+      text: "Complete " + checked.length + " selected entr" + (checked.length === 1 ? "y" : "ies") + "? This will add label-printed."
+    });
+    if(!confirmed){
+      setStatus("Complete cancelled.", "ok");
       return;
     }
 
@@ -1035,7 +1363,6 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         continue;
       }
 
-      // If already has label-printed badge => skip
       if(hasLabelPrintedBadge(featuresCell)){
         setStatus("Completing: " + (i+1) + " / " + checked.length, "ok");
         await sleep(500);
@@ -1086,6 +1413,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
       if(actionName === "calculate"){ runCalculateSequential(); return; }
       if(actionName === "buy"){ runBuySequential(); return; }
       if(actionName === "complete"){ runCompleteSequential(); return; }
+      if(actionName === "print"){ runPrintSelected(); return; }
 
       showAlertDanger("Action not implemented: " + actionName);
     });
@@ -1100,9 +1428,7 @@ JS;
 
     private static function render_selection_ui(): void {
         echo '<div class="d-flex flex-wrap gap-2 align-items-center mt-2">';
-        echo '<div class="text-muted small">';
-        echo 'Selected: <strong id="ffda_selected_count">0</strong>';
-        echo '</div>';
+        echo '<div class="text-muted small">Selected: <strong id="ffda_selected_count">0</strong></div>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm" id="ffda_clear_selection">Clear selection</button>';
         echo '</div>';
 
@@ -1236,11 +1562,10 @@ JS;
         $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
         if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
 
-        // Verify by API
         $entryHelper = new FrmEasypostEntryHelper();
         $verifyRes = $entryHelper->verifyEntryAddress($entry_id);
 
-        if( $verifyRes['status'] == 'verified' ) {
+        if( ($verifyRes['status'] ?? '') === 'verified' ) {
           $verified = true;
           $message = 'Address verified';
         } else {
@@ -1273,20 +1598,66 @@ JS;
 
         $carrier = isset($_POST['carrier']) ? sanitize_text_field((string) $_POST['carrier']) : '';
         if ( ! in_array($carrier, ['fedex', 'usps'], true) ) {
-            $carrier = ''; // or default, e.g. 'fedex'
+            $carrier = '';
         }
 
-        // Calculate rates via helper, API request inside
-        $entryHelper = new FrmEasypostEntryHelper();
-        $rates = $entryHelper->calculateRatesByEntry(
-          $entry_id,
-          [ 'carrier' => $carrier ],
-          [ 'rate' => 'asc' ]
-        );
+        $group = isset($_POST['group']) ? sanitize_text_field((string) $_POST['group']) : 'one';
+        $group = ($group === 'two') ? 'two' : 'one';
 
-        // Expected rate item:
-        // [ 'id' => 'rate_x', 'shipment_id' => 'shp_x', 'label' => '...' ]
-        wp_send_json(['ok' => true, 'message' => 'Rates calculated.', 'rates' => $rates]);
+        // List of label types to creates, FRM_EP_LABEL_DIRECTION_TYPES from /references.php
+        $labelTypes = [];
+        switch ($group) {
+            case 'one':
+                $labelTypes = ['service_client'];
+                break;
+            case 'two':
+            default:
+                $labelTypes = ['national_passport', 'service_client'];
+                break;
+        }
+
+        $entryHelper = new FrmEasypostEntryHelper();
+
+        $labelGroups = [];
+        foreach( $labelTypes as $type ) {
+
+          $group = FRM_EP_LABEL_DIRECTION_TYPES[$type] ?? null;
+          if ( $group ) {
+
+            $ratesData = $entryHelper->calculateRatesByEntry(
+              $entry_id,
+              [ 'carrier' => $carrier, 'group' => $group ],
+              [ 'rate' => 'asc' ],
+              $type
+            );
+
+            $labelGroups[ $type ] = [
+              'group' => $group,
+              'entry_id' => $ratesData['entry_id'],
+              'rates' => $ratesData['rates'],
+              'addresses' => $ratesData['addresses'],
+            ];
+
+          }
+
+        }
+
+        // national_passport should show just USPS rates
+        if ( isset( $labelGroups['national_passport'] ) ) {
+          $npRates = $labelGroups['national_passport']['rates'] ?? [];
+          $npRatesFiltered = [];
+          foreach ( $npRates as $rate ) {
+              if ( 
+                  isset( $rate['carrier'] ) && 
+                  strtolower( $rate['carrier'] ) === 'usps' 
+                  ) {
+                  $npRatesFiltered[] = $rate;
+              }
+          }
+          //$labelGroups['national_passport']['rates'] = $npRatesFiltered;    
+        }
+
+        wp_send_json(['ok' => true, 'message' => 'Rates calculated.', 'rates' => $labelGroups]);
     }
 
     public static function ajax_buy_label_for_entry(): void {
@@ -1306,21 +1677,19 @@ JS;
         if ($rate_id === '') { wp_send_json(['ok' => false, 'message' => 'Rate is not chosen']); }
 
         if (!$shipment_id || !$rate_id) wp_send_json_error(['message' => 'Missing shipment or rate.']);
-    
+
         try {
             $shipmentApi = new FrmEasypostShipmentApi();
-    
-            // Buy label by API
+
             $label = $shipmentApi->buyLabel($shipment_id, $rate_id);
-    
+
             if (empty($label) || !is_array($label)) {
                 wp_send_json_error(['ok' => false, 'message' => 'Empty response from label API.']);
             }
-    
-            // Update Shipment by API
+
             $shipmentHelper = new FrmEasypostShipmentHelper();
             $shipmentData = $shipmentHelper->updateShipmentApi($shipment_id );
-    
+
             wp_send_json_success([
                 'ok' => true,
                 'message' => 'Label bought successfully.',
@@ -1330,7 +1699,6 @@ JS;
         } catch (Throwable $e) {
             wp_send_json_error(['ok'=> false, 'message' => 'API error: '.$e->getMessage()]);
         }
-
     }
 
     public static function ajax_set_complete_entry(): void {
@@ -1348,19 +1716,11 @@ JS;
         wp_send_json(['ok' => true, 'message' => 'Completed']);
     }
 
-    /**
-     * Ensure "photo-printed" status exists in Formidable meta field
-     *
-     * @param int $entry_id
-     * @param int $field_id
-     * @return bool
-     */
     public static function frm_add_label_printed_status(int $entry_id, int $field_id): bool {
       global $wpdb;
 
       $table = $wpdb->prefix . 'frm_item_metas';
 
-      // Get existing meta
       $row = $wpdb->get_row(
           $wpdb->prepare(
               "SELECT id, meta_value
@@ -1372,27 +1732,22 @@ JS;
           )
       );
 
-      // Default empty array
       $values = [];
 
       if ($row && ! empty($row->meta_value)) {
           $unserialized = maybe_unserialize($row->meta_value);
-
           if (is_array($unserialized)) {
               $values = $unserialized;
           }
       }
 
-      // Already exists → do nothing
       if (in_array('label-printed', $values, true)) {
           return true;
       }
 
-      // Add value
       $values[] = 'label-printed';
       $serialized = maybe_serialize(array_values($values));
 
-      // Update or insert
       if ($row) {
           $wpdb->update(
               $table,
@@ -1416,7 +1771,6 @@ JS;
 
       return true;
     }
-
 
     // ---------------- HELPERS ----------------
 

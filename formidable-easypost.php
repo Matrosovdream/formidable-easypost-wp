@@ -458,37 +458,6 @@ function getShipments() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function shp_orders_format_date($val) {
     if (empty($val) || $val === '0000-00-00 00:00:00') return '-';
     $ts = strtotime($val);

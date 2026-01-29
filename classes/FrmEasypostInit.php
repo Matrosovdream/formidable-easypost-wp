@@ -173,6 +173,10 @@ class FrmEasypostInit {
         // Mass Buy Labels list
         require_once FRM_EAP_BASE_URL.'/shortcodes/admin/frm-easypost-labels-massbuy-list.php';
 
+        // Labels print
+        require_once FRM_EAP_BASE_URL.'/shortcodes/admin/frm-easypost-labels-print.php';
+
+
     }
 
     private function include_hooks() {

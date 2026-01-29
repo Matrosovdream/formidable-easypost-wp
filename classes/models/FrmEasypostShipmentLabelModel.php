@@ -203,6 +203,29 @@ class FrmEasypostShipmentLabelModel extends FrmEasypostAbstractModel {
         return $this->multipleUpdateCreateAbstract( $rows, $cols, $formats, $uniqueKey = 'easypost_id' );
     }
 
+    public function getAllByShipmentIds( array $shipmentIds ) {
+
+        if ( empty( $shipmentIds ) ) {
+            return [];
+        }
+
+        $placeholders = implode( ',', array_fill( 0, count( $shipmentIds ), '%s' ) );
+        $sql = "SELECT * FROM {$this->table} WHERE easypost_shipment_id IN ( {$placeholders} )";
+
+        $prepared = $this->db->prepare( $sql, $shipmentIds );
+        if ( false === $prepared ) {
+            return new WP_Error( 'db_prepare_failed', __( 'Failed to prepare query.', 'easypost-wp' ) );
+        }
+
+        $rows = $this->db->get_results( $prepared, ARRAY_A );
+        if ( null === $rows ) {
+            return new WP_Error( 'db_query_failed', __( 'Database query failed.', 'easypost-wp' ), [ 'last_error' => $this->db->last_error ] );
+        }
+
+        return $rows;
+        
+    }
+
     // ----------------------- utils -----------------------
     /*
     private function dateToMysql( string $in ): string {
