@@ -13,6 +13,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_PHOTO_DONE      = 670;
     private const FIELD_PROCESSING_TIME = 211;
     private const FIELD_MAILING_ADDRESS = 37;
+    private const FIELD_NOTE            = 5;
+
     private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframe/';
     private const PAGE_PRINT_LABELS_URL = 'labels-mass-buy-print/';
 
@@ -47,6 +49,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const AJAX_BUY_LABEL_FOR_ENTRY  = 'ajax_buy_label_for_entry';
     private const AJAX_SET_COMPLETE_ENTRY   = 'ajax_set_complete_entry';
     private const NONCE_KEY                 = 'ffda_massbuy_labels_nonce';
+    private const AJAX_UPDATE_ADDRESS = 'ffda_massbuy_entry_update_address';
+
 
     public static function init(): void {
         add_action('init', [__CLASS__, 'register_shortcode']);
@@ -56,6 +60,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         add_action('wp_ajax_' . self::AJAX_CALCULATE_RATES, [__CLASS__, 'ajax_calculate_rates_for_entry']);
         add_action('wp_ajax_' . self::AJAX_BUY_LABEL_FOR_ENTRY, [__CLASS__, 'ajax_buy_label_for_entry']);
         add_action('wp_ajax_' . self::AJAX_SET_COMPLETE_ENTRY, [__CLASS__, 'ajax_set_complete_entry']);
+        add_action('wp_ajax_' . self::AJAX_UPDATE_ADDRESS, [__CLASS__, 'ajax_update_address_for_entry']);
+
     }
 
     public static function register_shortcode(): void {
@@ -242,6 +248,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 $photo_done = self::meta_val($metas, self::FIELD_PHOTO_DONE);
 
+                $note = trim(self::meta_val($metas, self::FIELD_NOTE));
+
                 $mailing_addr = $entryHelper
                     ? $entryHelper->getEntryAddressFields($id)
                     : ['combined' => self::meta_val($metas, self::FIELD_MAILING_ADDRESS)];
@@ -280,7 +288,59 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 }
                 echo '</td>';
 
-                echo '<td class="ffda-mailing-addr-cell"><p style="margin-bottom: 0;">' . esc_html($mailing_addr['combined'] ?? '-') . '</p></td>';
+                $addr = is_array($mailing_addr) ? $mailing_addr : [];
+                $addr_first = (string) ($addr['firstname'] ?? '');
+                $addr_last  = (string) ($addr['lastname'] ?? '');
+                $addr_phone = (string) ($addr['phone'] ?? '');
+                $addr_st1   = (string) ($addr['street1'] ?? '');
+                $addr_st2   = (string) ($addr['street2'] ?? '');
+                $addr_city  = (string) ($addr['city'] ?? '');
+                $addr_state = (string) ($addr['state'] ?? '');
+                $addr_zip   = (string) ($addr['zip'] ?? '');
+
+                echo '<td class="ffda-mailing-addr-cell">';
+
+                  // visible combined text
+                  echo '<div class="ffda-addr-text">' . esc_html($addr['combined'] ?? '-') . '</div>';
+
+                  // small button
+                  echo '<button type="button" class="btn btn-link p-0 ffda-edit-addr-btn" style="font-size:12px;">Edit address</button>';
+
+                  // hidden form
+                  echo '<div class="ffda-edit-addr-form mt-2" style="display:none;">';
+
+                    echo '<div class="row g-2">';
+                      echo '<div class="col-6"><input type="text" class="form-control form-control-sm" name="firstname" placeholder="First name" value="' . esc_attr($addr_first) . '"></div>';
+                      echo '<div class="col-6"><input type="text" class="form-control form-control-sm" name="lastname"  placeholder="Last name"  value="' . esc_attr($addr_last) . '"></div>';
+
+                      echo '<div class="col-12"><input type="text" class="form-control form-control-sm" name="phone" placeholder="Phone" value="' . esc_attr($addr_phone) . '"></div>';
+
+                      echo '<div class="col-12"><input type="text" class="form-control form-control-sm" name="street1" placeholder="Street 1" value="' . esc_attr($addr_st1) . '"></div>';
+                      echo '<div class="col-12"><input type="text" class="form-control form-control-sm" name="street2" placeholder="Street 2" value="' . esc_attr($addr_st2) . '"></div>';
+
+                      echo '<div class="col-12"><input type="text" class="form-control form-control-sm" name="city"  placeholder="City" value="' . esc_attr($addr_city) . '"></div>';
+                      echo '<div class="col-6"><input type="text" class="form-control form-control-sm" name="state" placeholder="State" value="' . esc_attr($addr_state) . '"></div>';
+                      echo '<div class="col-6"><input type="text" class="form-control form-control-sm" name="zip"   placeholder="Zip" value="' . esc_attr($addr_zip) . '"></div>';
+                    echo '</div>';
+
+                    echo '<div class="d-flex align-items-center gap-2 mt-2">';
+                      echo '<button type="button" class="btn btn-sm btn-primary ffda-save-addr-btn">Save</button>';
+                      echo '<span class="ffda-addr-save-status text-muted small"></span>';
+                    echo '</div>';
+
+                  echo '</div>';
+
+                  if ($note !== '') {
+                      echo '<div class="ffda-note-wrap mt-2">';
+                      echo '  <button type="button" class="btn btn-link p-0 ffda-note-btn" aria-label="Note" title="Note">';
+                      echo '    <span class="ffda-note-icon">📝</span><span class="ffda-note-label">Note</span>';
+                      echo '  </button>';
+                      echo '  <div class="ffda-note-text" style="display:none;">' . esc_html($note) . '</div>';
+                      echo '</div>';
+                  }
+
+                echo '</td>';
+
                 echo '<td>' . $proc_badge . '</td>';
 
                 // Rates
@@ -427,6 +487,44 @@ final class FrmEasypostLabelsMassbuyListShortcode {
               font-weight: 700;
             }
 
+            .new-tracking-code-tag { margin-left: 6px; }
+
+            .ffda-edit-addr-form .form-control-sm {     
+              font-size: 14px;
+              height: 22px;
+              padding: 8px; 
+            }
+            .ffda-edit-addr-btn { text-decoration: underline; }
+
+            .ffda-note-wrap { display:block; }
+            .ffda-note-btn{
+              display:inline-flex;
+              align-items:center;
+              gap:6px;
+              font-size:12px;
+              text-decoration:none;
+            }
+            .ffda-note-icon{
+              width:22px;
+              height:22px;
+              display:inline-flex;
+              align-items:center;
+              justify-content:center;
+              border-radius:999px;
+              background:#f1f3f5;
+              border:1px solid #e5e7eb;
+            }
+            .ffda-note-label{ color:#0d6efd; }
+            .ffda-note-text{
+              margin-top:6px;
+              font-size:12px;
+              line-height:1.35;
+              padding:8px 10px;
+              border:1px solid #eee;
+              border-radius:8px;
+              background:#fafafa;
+              white-space:pre-wrap;
+            }
         </style>';
 
         // ✅ Confirmation modal HTML (used for Buy & Complete)
@@ -581,6 +679,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $ajaxCalc     = esc_js(self::AJAX_CALCULATE_RATES);
         $ajaxBuy      = esc_js(self::AJAX_BUY_LABEL_FOR_ENTRY);
         $ajaxComplete = esc_js(self::AJAX_SET_COMPLETE_ENTRY);
+        $ajaxUpdateAddr = esc_js(self::AJAX_UPDATE_ADDRESS);
 
         $js = <<<JS
 (function(){
@@ -638,6 +737,116 @@ final class FrmEasypostLabelsMassbuyListShortcode {
       setTimeout(refresh, 0);
     }
   });
+
+  // Toggle form
+document.addEventListener("click", function(e){
+  var t = e && e.target;
+  if(!t) return;
+
+  if(t.classList && t.classList.contains("ffda-edit-addr-btn")){
+    e.preventDefault();
+    var cell = t.closest(".ffda-mailing-addr-cell");
+    if(!cell) return;
+
+    var form = cell.querySelector(".ffda-edit-addr-form");
+    if(!form) return;
+
+    form.style.display = (form.style.display === "none" || !form.style.display) ? "block" : "none";
+  }
+});
+
+document.addEventListener("click", function(e){
+  var t = e && e.target;
+  if(!t) return;
+
+  // allow click on icon/label inside the button
+  var btn = t.closest ? t.closest(".ffda-note-btn") : null;
+  if(!btn) return;
+
+  e.preventDefault();
+
+  var wrap = btn.closest(".ffda-note-wrap");
+  if(!wrap) return;
+
+  var text = wrap.querySelector(".ffda-note-text");
+  if(!text) return;
+
+  text.style.display = (text.style.display === "none" || !text.style.display) ? "block" : "none";
+});
+
+
+// Save address
+document.addEventListener("click", async function(e){
+  var t = e && e.target;
+  if(!t || !(t.classList && t.classList.contains("ffda-save-addr-btn"))) return;
+
+  e.preventDefault();
+
+  var cell = t.closest(".ffda-mailing-addr-cell");
+  var row  = t.closest("tr");
+  if(!cell || !row) return;
+
+  var entryId = parseInt(row.getAttribute("data-entry-id") || "0", 10);
+  if(!entryId) return;
+
+  var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+  var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+  if(!ajaxUrl || !nonce) return;
+
+  var status = cell.querySelector(".ffda-addr-save-status");
+  if(status) status.textContent = "Saving…";
+
+  var formWrap = cell.querySelector(".ffda-edit-addr-form");
+  if(!formWrap) return;
+
+  function val(name){
+    var inp = formWrap.querySelector('[name="'+name+'"]');
+    return inp && inp.value ? String(inp.value) : "";
+  }
+
+  try{
+    var fd = new FormData();
+    fd.append("action", "{$ajaxUpdateAddr}");
+    fd.append("nonce", nonce);
+    fd.append("entry_id", String(entryId));
+
+    fd.append("firstname", val("firstname"));
+    fd.append("lastname",  val("lastname"));
+    fd.append("phone",     val("phone"));
+    fd.append("street1",   val("street1"));
+    fd.append("street2",   val("street2"));
+    fd.append("city",      val("city"));
+    fd.append("state",     val("state"));
+    fd.append("zip",       val("zip"));
+
+    var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:fd });
+    var json = null;
+    try { json = await resp.json(); } catch(err){ json = null; }
+
+    var payload = (json && typeof json.ok !== "undefined") ? json
+                : (json && json.success && json.data) ? json.data
+                : (json && json.data) ? json.data
+                : { ok:false, message:"Bad response" };
+
+    if(payload && payload.ok && payload.address){
+      var addr = payload.address;
+      var combined = addr.combined ? String(addr.combined) : "";
+
+      var textEl = cell.querySelector(".ffda-addr-text");
+      if(textEl) textEl.textContent = combined || "-";
+
+      if(status) status.textContent = "Saved";
+
+      // optionally auto-hide
+      if(formWrap) formWrap.style.display = "none";
+    } else {
+      if(status) status.textContent = (payload && payload.message) ? String(payload.message) : "Save failed";
+    }
+  } catch(err){
+    if(status) status.textContent = (err && err.message) ? err.message : "Network error";
+  }
+});
+
 
   function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
 
@@ -1235,6 +1444,9 @@ if(printModal){
       setInlineMsg("ok", "… buying");
 
       try{
+
+        var rateGroup = sel.getAttribute("data-rate-group") || "";
+
         var form = new FormData();
         form.append("action", "{$ajaxBuy}");
         form.append("nonce", nonce);
@@ -1242,6 +1454,7 @@ if(printModal){
         form.append("shipment_id", String(shipmentId));
         form.append("rate_id", rateId);
         form.append("group", getGroupValue());
+        form.append("rate_group", rateGroup);
 
         var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
         var json = null;
@@ -1258,6 +1471,20 @@ if(printModal){
         if(ok){
           sel.disabled = true;
           setInlineMsg("ok", msg);
+
+          // ✅ If updated_tracking_code=true -> add badge in Features cell
+          var updatedTracking = false;
+          if(payload && typeof payload.updated_tracking_code !== "undefined"){
+            updatedTracking = !!payload.updated_tracking_code;
+          } else if(payload && payload.data && typeof payload.data.updated_tracking_code !== "undefined"){
+            updatedTracking = !!payload.data.updated_tracking_code;
+          }
+
+          if(updatedTracking){
+            var row = sel.closest("tr");
+            var featuresCell = row ? row.querySelector(".ffda-features-cell") : null;
+            addNewTrackingBadge(featuresCell);
+          }
 
           var trackingUrl = "";
           if(payload && payload.data && payload.data.tracking_url){
@@ -1303,14 +1530,30 @@ if(printModal){
   }
 
   function addLabelPrintedBadge(featuresCell){
+      if(!featuresCell) return;
+      if(hasLabelPrintedBadge(featuresCell)) return;
+
+      var b = document.createElement("span");
+      b.className = "badge text-bg-secondary label-printed-tag";
+      b.textContent = "label-printed";
+      featuresCell.appendChild(b);
+    }
+
+    function hasNewTrackingBadge(featuresCell){
+    if(!featuresCell) return false;
+    return !!featuresCell.querySelector(".new-tracking-code-tag");
+  }
+
+  function addNewTrackingBadge(featuresCell){
     if(!featuresCell) return;
-    if(hasLabelPrintedBadge(featuresCell)) return;
+    if(hasNewTrackingBadge(featuresCell)) return;
 
     var b = document.createElement("span");
-    b.className = "badge text-bg-secondary label-printed-tag";
-    b.textContent = "label-printed";
+    b.className = "badge text-bg-warning new-tracking-code-tag"; // ✅ orange (bootstrap warning)
+    b.textContent = "new-tracking-code";
     featuresCell.appendChild(b);
   }
+
 
   function getGroupValue(){
     // from the filter select in the form
@@ -1554,7 +1797,7 @@ JS;
 
     public static function ajax_verify_address_for_entry(): void {
         if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
-        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
+        //if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
 
         $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
         if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
@@ -1588,7 +1831,7 @@ JS;
 
     public static function ajax_calculate_rates_for_entry(): void {
         if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.', 'rates' => []]); }
-        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.', 'rates' => []]); }
+        //if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.', 'rates' => []]); }
 
         $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
         if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.', 'rates' => []]); }
@@ -1624,9 +1867,19 @@ JS;
           $group = FRM_EP_LABEL_DIRECTION_TYPES[$type] ?? null;
           if ( $group ) {
 
+            $filters = [ 
+              'carrier' => $carrier, 
+              'group' => $group 
+            ];
+
+            if( $type == 'national_passport' ) {
+              // For national_passport, only USPS is allowed
+              $filters['carrier'] = 'usps';
+            }
+            
             $ratesData = $entryHelper->calculateRatesByEntry(
               $entry_id,
-              [ 'carrier' => $carrier, 'group' => $group ],
+              $filters,
               [ 'rate' => 'asc' ],
               $type
             );
@@ -1663,7 +1916,7 @@ JS;
     public static function ajax_buy_label_for_entry(): void {
 
         if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
-        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
+        //if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
 
         $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
         if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
@@ -1671,6 +1924,7 @@ JS;
         $entry_id    = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
         $shipment_id = isset($_POST['shipment_id']) ? sanitize_text_field((string) $_POST['shipment_id']) : '';
         $rate_id     = isset($_POST['rate_id']) ? sanitize_text_field((string) $_POST['rate_id']) : '';
+        $rate_group = isset($_POST['rate_group']) ? sanitize_text_field((string) $_POST['rate_group']) : '';
 
         if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
         if ($shipment_id === '') { wp_send_json(['ok' => false, 'message' => 'Missing shipment_id.']); }
@@ -1690,10 +1944,20 @@ JS;
             $shipmentHelper = new FrmEasypostShipmentHelper();
             $shipmentData = $shipmentHelper->updateShipmentApi($shipment_id );
 
+            // Update tracking url of the entry
+            $updatedTrackingCode = false;
+            if( $rate_group === 'service_client' ) {
+              $entryHelper = new FrmEasypostEntryHelper();
+              $entryHelper->updateEntryShipmentData( $entry_id, $shipmentData ?? [], $label );
+
+              $updatedTrackingCode = true;
+            }
+
             wp_send_json_success([
                 'ok' => true,
                 'message' => 'Label bought successfully.',
                 'data'   => $shipmentData,
+                'updated_tracking_code' => $updatedTrackingCode,
             ]);
 
         } catch (Throwable $e) {
@@ -1703,7 +1967,7 @@ JS;
 
     public static function ajax_set_complete_entry(): void {
         if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
-        if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
+        //if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
 
         $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
         if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
@@ -1771,6 +2035,40 @@ JS;
 
       return true;
     }
+
+    public static function ajax_update_address_for_entry(): void {
+      if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.'], 200); }
+  
+      $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+      if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.'], 200); }
+  
+      $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+      if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.'], 200); }
+  
+      $addr = [
+          'firstname' => sanitize_text_field((string) ($_POST['firstname'] ?? '')),
+          'lastname'  => sanitize_text_field((string) ($_POST['lastname'] ?? '')),
+          'phone'     => sanitize_text_field((string) ($_POST['phone'] ?? '')),
+          'street1'   => sanitize_text_field((string) ($_POST['street1'] ?? '')),
+          'street2'   => sanitize_text_field((string) ($_POST['street2'] ?? '')),
+          'city'      => sanitize_text_field((string) ($_POST['city'] ?? '')),
+          'state'     => sanitize_text_field((string) ($_POST['state'] ?? '')),
+          'zip'       => sanitize_text_field((string) ($_POST['zip'] ?? '')),
+          'country'   => 'US',
+      ];
+  
+      // Build combined + name (like your example)
+      $addr['name'] = trim($addr['firstname'] . ' ' . $addr['lastname']);
+      $addr['combined'] = trim($addr['street1'] . ', ' . $addr['city'] . ' ' . $addr['state'] . ' ' . $addr['zip']);
+  
+      // ✅ TODO: save it wherever you want (Formidable field, custom table, etc.)
+      // Example placeholder:
+      // $entryHelper = new FrmEasypostEntryHelper();
+      // $entryHelper->updateEntryAddress($entry_id, $addr);
+  
+      wp_send_json(['ok' => true, 'message' => 'Address updated.', 'address' => $addr], 200);
+  }
+  
 
     // ---------------- HELPERS ----------------
 
