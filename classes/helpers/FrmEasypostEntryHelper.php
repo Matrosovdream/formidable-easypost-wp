@@ -177,6 +177,18 @@ class FrmEasypostEntryHelper {
 
     }
 
+    public function updateMetaField(int $entry_id, int $field_id, $value): bool
+    {
+        $ok = \FrmEntryMeta::update_entry_meta($entry_id, $field_id, '', $value);
+        if (!$ok) {
+            if (method_exists('\FrmEntryMeta', 'delete_entry_meta')) {
+                \FrmEntryMeta::delete_entry_meta($entry_id, $field_id);
+            }
+            \FrmEntryMeta::add_entry_meta($entry_id, $field_id, '', $value);
+        }
+        return true;
+    }
+
     public function updateEntryFresh( int $entry_id ): bool {
         global $wpdb;
         $table = $wpdb->prefix . 'frm_items'; // Formidable entries table
@@ -486,6 +498,57 @@ class FrmEasypostEntryHelper {
                 'to'   => $ratesPayload['to_address'] ?? [],
             ]
         ];
+
+    }
+
+    public function updateEntryShipmentData( int $entry_id, array $data, array $labelData = [] ): bool {
+
+        /*
+        $data = [
+            "id": "1194356",
+            "easypost_id": "shp_84ea2a54439d4373ba951a14aad8a3a3",
+            "entry_id": "64828",
+            "is_return": "0",
+            "status": "unknown",
+            "tracking_code": "9405500208303116390324",
+            "refund_status": null,
+            "mode": "test",
+            "created_at": "2026-01-30 01:52:50",
+            "updated_at": "2026-01-30 01:52:57",
+            "tracking_url": "https:\/\/track.easypost.com\/djE6dHJrXzdiMmM1MDY1YmI2MTRiMTM5MGYzMTYwNGJmODExZjg4"
+        ]
+        */
+
+        $fieldsMap = [
+            'tracking_code' => 344,
+            'carrier'      => 354,
+        ];
+
+        $selectedRate = $labelData['selected_rate'] ?? [];
+
+        // Update tracking_code
+        if( 
+            isset( $data['tracking_code'] ) 
+            ) {
+            $fieldId = $fieldsMap['tracking_code'];
+            $this->updateMetaField( $entry_id, $fieldId, sanitize_text_field( $data['tracking_code'] ) );
+
+        }
+
+        // Update Label carrier
+        if( 
+            isset( $selectedRate['carrier'] ) 
+            ) {
+            $fieldId = $fieldsMap['carrier']; 
+
+            // Fix for Formidable values, no other way around it
+            if( $selectedRate['carrier'] == 'FedEx' ) { $selectedRate['carrier'] = 'Fedex';  }
+
+            $this->updateMetaField( $entry_id, $fieldId, sanitize_text_field( $selectedRate['carrier'] ) );
+
+        }
+
+        return true;
 
     }
 
