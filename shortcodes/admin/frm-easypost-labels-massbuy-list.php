@@ -303,8 +303,12 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                   // visible combined text
                   echo '<div class="ffda-addr-text">' . esc_html($addr['combined'] ?? '-') . '</div>';
 
-                  // small button
-                  echo '<button type="button" class="btn btn-link p-0 ffda-edit-addr-btn" style="font-size:12px;">Edit address</button>';
+                  // small buttons
+                  echo '<div class="d-flex gap-2 align-items-center">';
+                  echo '  <button type="button" class="btn btn-link p-0 ffda-edit-addr-btn" style="font-size:12px;">Edit address</button>';
+                  echo '  <button type="button" class="btn btn-link p-0 ffda-update-addr-btn" style="font-size:12px; display:none;">Update address</button>';
+                  echo '</div>';
+
 
                   // hidden form
                   echo '<div class="ffda-edit-addr-form mt-2" style="display:none;">';
@@ -759,6 +763,25 @@ document.addEventListener("click", function(e){
   var t = e && e.target;
   if(!t) return;
 
+  if(t.classList && t.classList.contains("ffda-update-addr-btn")){
+    e.preventDefault();
+
+    var cell = t.closest(".ffda-mailing-addr-cell");
+    if(!cell) return;
+
+    var entryId = t.getAttribute("data-entry-id") || "";
+    var comp = normalizedByEntry[String(entryId)] || null;
+    if(!comp) return;
+
+    fillEditFormFromComponents(cell, comp);
+  }
+});
+
+
+document.addEventListener("click", function(e){
+  var t = e && e.target;
+  if(!t) return;
+
   // allow click on icon/label inside the button
   var btn = t.closest ? t.closest(".ffda-note-btn") : null;
   if(!btn) return;
@@ -880,7 +903,7 @@ document.addEventListener("click", async function(e){
     return el;
   }
 
-  function renderVerifyResult(cell, payload){
+  function renderVerifyResult(cell, payload, entryId){
     var badge = ensureVerifyBadge(cell);
 
     var ok = !!(payload && payload.ok);
@@ -914,6 +937,31 @@ document.addEventListener("click", async function(e){
       normBlock.className = "ep-verify-status ok ep-normalized-block";
       normBlock.innerHTML = "<strong>Normalized:</strong><br/>" + normalized;
     }
+
+    // ---- Show Update Address when normalized exists AND not matched ----
+    var components = null;
+
+    // Try to find components in different shapes:
+    // payload.data.normalized.components
+    // payload.normalized.components
+    // payload.data.normalized_components (if you ever add it)
+    if(payload){
+      if(payload.data && payload.data.normalized && payload.data.normalized.components){
+        components = payload.data.normalized.components;
+      } else if(payload.normalized && payload.normalized.components){
+        components = payload.normalized.components;
+      } else if(payload.data && payload.data.normalized_components){
+        components = payload.data.normalized_components;
+      }
+    }
+
+    if(components && !matched){
+      showUpdateAddrBtn(cell, entryId, components);
+    } else {
+      hideUpdateAddrBtn(cell);
+    }
+
+
   }
 
   function runPrintSelected(){
@@ -972,6 +1020,83 @@ document.addEventListener("click", async function(e){
   window.open(url, "_blank", "noopener");
   setStatus("Opening print page for " + shipmentIds.length + " shipment(s)...", "ok");
 }
+
+
+  // ---- Update Address helpers ----
+  var normalizedByEntry = {}; // entryId -> components object
+
+  function getUpdateAddrBtn(cell){
+    if(!cell) return null;
+    return cell.querySelector(".ffda-update-addr-btn");
+  }
+
+  function showUpdateAddrBtn(cell, entryId, components){
+    var btn = getUpdateAddrBtn(cell);
+    if(!btn) return;
+
+    if(!entryId || !components || typeof components !== "object"){
+      btn.style.display = "none";
+      return;
+    }
+
+    normalizedByEntry[String(entryId)] = components;
+    btn.setAttribute("data-entry-id", String(entryId));
+    btn.style.display = "inline-block";
+  }
+
+  function hideUpdateAddrBtn(cell){
+    var btn = getUpdateAddrBtn(cell);
+    if(!btn) return;
+    btn.style.display = "none";
+  }
+
+  function cleanSpaces(s){
+    return String(s || "").replace(/\s+/g, " ").trim();
+  }
+
+  function buildStreet1(c){
+    // SmartyStreets-like components:
+    // primary_number, street_predirection, street_name, street_suffix, street_postdirection
+    var parts = [
+      c.primary_number,
+      c.street_predirection,
+      c.street_name,
+      c.street_suffix,
+      c.street_postdirection
+    ];
+    return cleanSpaces(parts.filter(Boolean).join(" "));
+  }
+
+  function buildStreet2(c){
+    // secondary_designator + secondary_number (e.g. Apt 5B)
+    var parts = [c.secondary_designator, c.secondary_number];
+    return cleanSpaces(parts.filter(Boolean).join(" "));
+  }
+
+  function fillEditFormFromComponents(cell, components){
+    if(!cell || !components) return;
+
+    var formWrap = cell.querySelector(".ffda-edit-addr-form");
+    if(!formWrap) return;
+
+    function setVal(name, value){
+      var inp = formWrap.querySelector('[name="'+name+'"]');
+      if(inp) inp.value = (value == null) ? "" : String(value);
+    }
+
+    var c = components || {};
+
+    // Fill fields you already have in the form
+    setVal("street1", buildStreet1(c));
+    setVal("street2", buildStreet2(c));
+    setVal("city",  c.city_name || "");
+    setVal("state", c.state_abbreviation || "");
+    setVal("zip",   c.full_zipcode || "");
+
+    // Open the editor
+    formWrap.style.display = "block";
+  }
+
 
 
   function renderRatesSelect(cell, ratesByGroup, entryId){
@@ -1261,10 +1386,10 @@ if(printModal){
                     : (json && json.data) ? json.data
                     : { ok:false, message:"Bad response" };
 
-        renderVerifyResult(addrCell, payload);
+        renderVerifyResult(addrCell, payload, entryId);
 
       } catch(err){
-        renderVerifyResult(addrCell, { ok:false, message:(err && err.message) ? err.message : "Network error" });
+        renderVerifyResult(addrCell, { ok:false, message:(err && err.message) ? err.message : "Network error" }, entryId);
       }
 
       setStatus("Verifying addresses: " + (i+1) + " / " + checked.length, "ok");
@@ -2061,10 +2186,9 @@ JS;
       $addr['name'] = trim($addr['firstname'] . ' ' . $addr['lastname']);
       $addr['combined'] = trim($addr['street1'] . ', ' . $addr['city'] . ' ' . $addr['state'] . ' ' . $addr['zip']);
   
-      // ✅ TODO: save it wherever you want (Formidable field, custom table, etc.)
-      // Example placeholder:
-      // $entryHelper = new FrmEasypostEntryHelper();
-      // $entryHelper->updateEntryAddress($entry_id, $addr);
+      // Update entry address via helper
+      $entryHelper = new FrmEasypostEntryHelper();
+      $entryHelper->updateEntryAddress($entry_id, $addr, 'mailing');
   
       wp_send_json(['ok' => true, 'message' => 'Address updated.', 'address' => $addr], 200);
   }
