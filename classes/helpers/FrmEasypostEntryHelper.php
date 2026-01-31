@@ -552,4 +552,24 @@ class FrmEasypostEntryHelper {
 
     }
 
+    public function updateEntryAddress( int $entry_id, $fields, $addressType='mailing' ) {
+
+
+        $fieldsMap = FRM_EP_ENTRY_ADDRESS_FIELDS ?? [];
+        if( empty( $fieldsMap ) ) { return; }
+
+        // Update each field
+        foreach( $fieldsMap as $key => $fieldId ) {
+
+            $value = sanitize_text_field( ($fields[$key] ) ) ?? null;
+            if( isset( $value ) ) {
+                $this->updateMetaField( $entry_id, $fieldId, $value );
+            }   
+        }
+
+        // Refresh entry updated_at
+        $this->updateEntryFresh( $entry_id );
+
+    }
+
 }
