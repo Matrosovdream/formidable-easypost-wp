@@ -13,6 +13,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_PHOTO_DONE      = 670;
     private const FIELD_PROCESSING_TIME = 211;
     private const FIELD_MAILING_ADDRESS = 37;
+    private const FIELD_TRACKING_CODE   = 344;
     private const FIELD_NOTE            = 5;
 
     private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframe/';
@@ -120,6 +121,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
         $helper = new FrmEasypostLabelHelper();
         $entryHelper = class_exists('FrmEasypostEntryHelper') ? new FrmEasypostEntryHelper() : null;
+
+        $shipmentHelper = new FrmEasypostShipmentHelper();
 
         $args = [
             'page' => $page,
@@ -248,6 +251,13 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 $photo_done = self::meta_val($metas, self::FIELD_PHOTO_DONE);
 
+                // Tracking code data
+                $tracking_code = self::meta_val($metas, self::FIELD_TRACKING_CODE);
+                if(!empty($tracking_code)) {
+                  $shipmentData = $shipmentHelper->getShipmentByTrackingCode( $tracking_code );
+                  $labelCreated = date('Y-m-d H:i', strtotime($shipmentData['created_at'] ?? ''));
+                }
+
                 $note = trim(self::meta_val($metas, self::FIELD_NOTE));
 
                 $mailing_addr = $entryHelper
@@ -334,18 +344,20 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                   echo '</div>';
 
-                  if ($note !== '') {
-                      echo '<div class="ffda-note-wrap mt-2">';
-                      echo '  <button type="button" class="btn btn-link p-0 ffda-note-btn" aria-label="Note" title="Note">';
-                      echo '    <span class="ffda-note-icon">📝</span><span class="ffda-note-label">Note</span>';
-                      echo '  </button>';
-                      echo '  <div class="ffda-note-text" style="display:none;">' . esc_html($note) . '</div>';
-                      echo '</div>';
-                  }
-
                 echo '</td>';
 
-                echo '<td>' . $proc_badge . '</td>';
+                echo '<td>' . $proc_badge;
+
+                if ($note !== '') {
+                  echo '<div class="ffda-note-wrap mt-2">';
+                  echo '  <button type="button" class="btn btn-link p-0 ffda-note-btn" aria-label="Note" title="Note">';
+                  echo '    <span class="ffda-note-icon">📝</span><span class="ffda-note-label">Note</span>';
+                  echo '  </button>';
+                  echo '  <div class="ffda-note-text" style="display:none;">' . esc_html($note) . '</div>';
+                  echo '</div>';
+                }
+
+                echo '</td>';
 
                 // Rates
                 echo '<td class="ffda-rates-cell"><span class="ffda-rates-placeholder"></span></td>';
@@ -364,6 +376,11 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                     Show all
                     </button>';
 
+                if( $labelCreated ) {
+                  echo '<br/>';
+                  echo '<div class="text-muted mt-1">Label created at: ' . esc_html($labelCreated ?? '-') . '</div>';
+                }
+              
                 echo '<div class="easypost-shipments-container" style="display:none;">';
                 echo do_shortcode('[easypost-shipments entry=' . esc_attr((string)$id) . ']');
                 echo '</div>';
@@ -652,8 +669,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="verify" disabled>Verify</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="calculate" disabled>Calculate</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="buy" disabled>Buy</button>';
-        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="complete" disabled>Complete</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="print" disabled>Print</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="complete" disabled>Complete</button>';
         echo '</div>';
 
         echo '<div class="small" style="padding-top:22px;">';
@@ -1632,6 +1649,38 @@ if(printModal){
             statusBox.appendChild(linkWrap);
           }
 
+          // ✅ render label image under Tracking url (if present)
+          var labelUrl = "";
+
+          // Prefer the top-level label_url we added in PHP
+          if(payload && payload.label_url){
+            labelUrl = String(payload.label_url);
+          } else if(payload && payload.label && payload.label.postage_label && payload.label.postage_label.label_url){
+            // Fallback if you didn't add label_url top-level
+            labelUrl = String(payload.label.postage_label.label_url);
+          } else if(payload && payload.data && payload.data.label && payload.data.label.postage_label && payload.data.label.postage_label.label_url){
+            // Extra fallback if your structure differs
+            labelUrl = String(payload.data.label.postage_label.label_url);
+          }
+
+          labelUrl = (labelUrl || "").trim();
+
+          if(labelUrl && statusBox){
+            var imgWrap = document.createElement("div");
+            imgWrap.className = "mt-1";
+
+            var img = document.createElement("img");
+            img.src = labelUrl;
+            img.alt = "Label";
+            img.loading = "lazy";
+            img.style.maxWidth = "110px";   // ✅ small preview
+            img.style.maxHeight = "110px";  // ✅ small preview
+            img.style.border = "1px solid #e5e7eb";
+            img.style.borderRadius = "6px";
+
+            imgWrap.appendChild(img);
+            statusBox.appendChild(imgWrap);
+          }
 
         } else {
           setInlineMsg("err", msg);
@@ -2078,11 +2127,20 @@ JS;
               $updatedTrackingCode = true;
             }
 
+            // Extract label_url from response: label -> postage_label -> label_url
+            $label_url = '';
+            if (is_array($label)) {
+                $label_url = (string) ($label['postage_label']['label_url'] ?? '');
+                $label_url = trim($label_url);
+            }
+
             wp_send_json_success([
                 'ok' => true,
                 'message' => 'Label bought successfully.',
                 'data'   => $shipmentData,
                 'updated_tracking_code' => $updatedTrackingCode,
+                'label'  => $label,
+                'label_url' => $label_url
             ]);
 
         } catch (Throwable $e) {
