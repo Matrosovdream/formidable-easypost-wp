@@ -362,4 +362,8 @@ class FrmEasypostShipmentHelper {
 
     }
 
+    public function getShipmentByTrackingCode( string $trackingCode ) {
+        return $this->shipmentModel->getByTrackingCode( $trackingCode );
+    }
+
 }
