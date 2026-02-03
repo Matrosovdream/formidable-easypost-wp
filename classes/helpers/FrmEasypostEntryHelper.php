@@ -177,6 +177,12 @@ class FrmEasypostEntryHelper {
 
     }
 
+    public function getEntryMetaValue( int $entry_id, int $field_id ) {
+        
+        return FrmEntryMeta::get_entry_meta_by_field($entry_id, $field_id, true);
+
+    }
+
     public function updateMetaField(int $entry_id, int $field_id, $value): bool
     {
         $ok = \FrmEntryMeta::update_entry_meta($entry_id, $field_id, '', $value);
@@ -187,6 +193,27 @@ class FrmEasypostEntryHelper {
             \FrmEntryMeta::add_entry_meta($entry_id, $field_id, '', $value);
         }
         return true;
+    }
+
+    public function updateMultipleMetaField(int $entry_id, int $field_id, array $values, string $action='add'): bool
+    {
+        
+        $oldValue = \FrmEntryMeta::get_entry_meta_by_field($entry_id, $field_id, true);
+        $oldValues = is_array($oldValue) ? $oldValue : [];
+
+        if( $action === 'add' ) {
+            // Add values
+            $newValues = array_unique( array_merge( $oldValues, $values ) );
+        } elseif( $action === 'remove' ) {
+            // Remove values
+            $newValues = array_diff( $oldValues, $values );
+        } else {
+            // Replace
+            $newValues = $values;
+        }
+
+        // Update meta
+        return $this->updateMetaField( $entry_id, $field_id, $newValues );
     }
 
     public function updateEntryFresh( int $entry_id ): bool {
