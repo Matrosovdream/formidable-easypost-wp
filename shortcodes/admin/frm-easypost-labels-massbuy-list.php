@@ -18,6 +18,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
     private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframe/';
     private const PAGE_PRINT_LABELS_URL = 'labels-mass-buy-print/';
+    private const PAGE_MASS_PHOTO_PRINT_URL = '/formidable-entries-mass-photo/?step=2&entries={ids}';
 
 
     /** Processing time values (field 211) */
@@ -51,6 +52,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const AJAX_SET_COMPLETE_ENTRY   = 'ajax_set_complete_entry';
     private const NONCE_KEY                 = 'ffda_massbuy_labels_nonce';
     private const AJAX_UPDATE_ADDRESS = 'ffda_massbuy_entry_update_address';
+    private const AJAX_SET_PHOTO_PRINTED = 'ajax_set_photo_printed_entry';
 
 
     public static function init(): void {
@@ -62,6 +64,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         add_action('wp_ajax_' . self::AJAX_BUY_LABEL_FOR_ENTRY, [__CLASS__, 'ajax_buy_label_for_entry']);
         add_action('wp_ajax_' . self::AJAX_SET_COMPLETE_ENTRY, [__CLASS__, 'ajax_set_complete_entry']);
         add_action('wp_ajax_' . self::AJAX_UPDATE_ADDRESS, [__CLASS__, 'ajax_update_address_for_entry']);
+        add_action('wp_ajax_' . self::AJAX_SET_PHOTO_PRINTED, [__CLASS__, 'ajax_set_photo_printed_entry']);
 
     }
 
@@ -123,6 +126,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $entryHelper = class_exists('FrmEasypostEntryHelper') ? new FrmEasypostEntryHelper() : null;
 
         $shipmentHelper = new FrmEasypostShipmentHelper();
+        $entryHelper = new FrmEasypostEntryHelper();
 
         $args = [
             'page' => $page,
@@ -179,6 +183,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<div class="ffda-massbuy-list"
                 data-ajax-url="' . esc_attr($ajax_url) . '"
                 data-ajax-nonce="' . esc_attr($nonce) . '"
+                data-photo-print-url="' . esc_attr(self::PAGE_MASS_PHOTO_PRINT_URL) . '"
                 data-print-url="' . esc_attr($print_url) . '">';
 
 
@@ -212,7 +217,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</th>';
         echo '<th style="width:40px;">ID</th>';
         echo '<th style="width:140px;">Created</th>';
-        echo '<th style="width:180px;">Service (12)</th>';
+        echo '<th style="width:180px;">Service</th>';
         echo '<th style="width:140px;">Features</th>';
         echo '<th style="width:400px;">Mailing address</th>';
         echo '<th style="width:130px;">Proc time</th>';
@@ -251,6 +256,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 $photo_done = self::meta_val($metas, self::FIELD_PHOTO_DONE);
 
+                $features = $entryHelper->getEntryMetaValue( $id, self::FIELD_FLAGS );
+
                 // Tracking code data
                 $tracking_code = self::meta_val($metas, self::FIELD_TRACKING_CODE);
                 if(!empty($tracking_code)) {
@@ -267,6 +274,10 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 $photo_badge = ($photo_mode === 'with')
                     ? '<span class="badge text-bg-success">photo-done</span>'
                     : '<span class="badge text-bg-secondary">photo-no</span>';
+
+                $photo_printed_badge = ( is_array($features) && in_array('photo-printed', $features, true) )
+                    ? '<span class="badge text-bg-info">photo-printed</span>'
+                    : '';    
 
                 $proc_label = self::processing_label($proc_211);
                 $proc_class = 'text-bg-info';
@@ -293,6 +304,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 // Features
                 echo '<td class="ffda-features-cell">' . $photo_badge;
+                echo $photo_printed_badge;
                 if ( $photo_done === 'photo-done' ) {
                     echo '<iframe src="' . esc_url($photo_iframe_url) . '" width="150" height="150" scrolling="no" style="margin-top: 10px"></iframe>';
                 }
@@ -344,19 +356,18 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                   echo '</div>';
 
+                  if ($note !== '') {
+                    echo '<div class="ffda-note-wrap mt-2">';
+                    echo '  <button type="button" class="btn btn-link p-0 ffda-note-btn" aria-label="Note" title="Note">';
+                    echo '    <span class="ffda-note-icon">📝</span><span class="ffda-note-label">Note</span>';
+                    echo '  </button>';
+                    echo '  <div class="ffda-note-text" style="display:none;">' . esc_html($note) . '</div>';
+                    echo '</div>';
+                  }
+
                 echo '</td>';
 
                 echo '<td>' . $proc_badge;
-
-                if ($note !== '') {
-                  echo '<div class="ffda-note-wrap mt-2">';
-                  echo '  <button type="button" class="btn btn-link p-0 ffda-note-btn" aria-label="Note" title="Note">';
-                  echo '    <span class="ffda-note-icon">📝</span><span class="ffda-note-label">Note</span>';
-                  echo '  </button>';
-                  echo '  <div class="ffda-note-text" style="display:none;">' . esc_html($note) . '</div>';
-                  echo '</div>';
-                }
-
                 echo '</td>';
 
                 // Rates
@@ -375,15 +386,15 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                     onclick="toggleShipments(this)">
                     Show all
                     </button>';
+              
+                echo '<div class="easypost-shipments-container" style="display:none;">';
+                echo do_shortcode('[easypost-shipments entry=' . esc_attr((string)$id) . ']');
+                echo '</div>';
 
                 if( $labelCreated ) {
                   echo '<br/>';
                   echo '<div class="text-muted mt-1">Label created at: ' . esc_html($labelCreated ?? '-') . '</div>';
                 }
-              
-                echo '<div class="easypost-shipments-container" style="display:none;">';
-                echo do_shortcode('[easypost-shipments entry=' . esc_attr((string)$id) . ']');
-                echo '</div>';
 
                 echo '<script>
                   function toggleShipments(button) {
@@ -671,6 +682,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="buy" disabled>Buy</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="print" disabled>Print</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="complete" disabled>Complete</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="photo-print" disabled>Photo Print</button>';
+        echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="photo-complete" disabled>Set photo-printed</button>';
         echo '</div>';
 
         echo '<div class="small" style="padding-top:22px;">';
@@ -701,6 +714,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $ajaxBuy      = esc_js(self::AJAX_BUY_LABEL_FOR_ENTRY);
         $ajaxComplete = esc_js(self::AJAX_SET_COMPLETE_ENTRY);
         $ajaxUpdateAddr = esc_js(self::AJAX_UPDATE_ADDRESS);
+        $ajaxPhotoComplete = esc_js(self::AJAX_SET_PHOTO_PRINTED);
 
         $js = <<<JS
 (function(){
@@ -1089,6 +1103,155 @@ document.addEventListener("click", async function(e){
     var parts = [c.secondary_designator, c.secondary_number];
     return cleanSpaces(parts.filter(Boolean).join(" "));
   }
+
+  function runPhotoPrint(){
+  clearAlert();
+
+  var checked = getSelectedCheckboxes();
+  if(!checked.length){
+    showAlertDanger("Select entries first.");
+    setStatus("No entries selected.", "err");
+    return;
+  }
+
+  var tpl = wrap.getAttribute("data-photo-print-url") || "";
+  if(!tpl){
+    showAlertDanger("Photo print URL is missing.");
+    setStatus("Missing photo print URL.", "err");
+    return;
+  }
+
+  // collect entry IDs
+  var ids = checked.map(function(cb){
+    var row = cb.closest("tr");
+    return row ? row.getAttribute("data-entry-id") : cb.value;
+  }).filter(Boolean);
+
+  // ✅ replace {ids} in template
+  var url = tpl.replace(
+    "{ids}",
+    encodeURIComponent(ids.join(","))
+  );
+
+  window.open(url, "_blank", "noopener");
+  setStatus("Opening photo print for " + ids.length + " entr" + (ids.length === 1 ? "y" : "ies"), "ok");
+}
+
+
+async function runPhotoCompleteSequential(){
+  clearAlert();
+
+  var checked = getSelectedCheckboxes();
+  if(!checked.length){
+    setStatus("Select entries to enable actions.", "ok");
+    return;
+  }
+
+  var confirmed = await showConfirm({
+    title: "Confirm Photo Complete",
+    text: "Mark photo-printed for " + checked.length + " entr" + (checked.length === 1 ? "y" : "ies") + "?"
+  });
+  if(!confirmed){
+    setStatus("Photo complete cancelled.", "ok");
+    return;
+  }
+
+  // 🚧 Stub: you will add AJAX handler later
+  setButtonsEnabled(false);
+
+  for(var i=0; i<checked.length; i++){
+    await sleep(300);
+  }
+
+  setStatus("Photo marked as printed (stub).", "ok");
+  refresh();
+}
+
+async function runPhotoCompleteSequential(){
+  clearAlert();
+
+  var checked = getSelectedCheckboxes();
+  if(checked.length === 0){
+    setStatus("Select entries to enable actions.", "ok");
+    return;
+  }
+
+  // confirm (same UX as Complete)
+  var confirmed = await showConfirm({
+    title: "Confirm Photo Printed",
+    text: "Set photo-printed for " + checked.length + " entr" + (checked.length === 1 ? "y" : "ies") + "?"
+  });
+  if(!confirmed){
+    setStatus("Photo printed cancelled.", "ok");
+    return;
+  }
+
+  var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+  var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+  if(!ajaxUrl || !nonce){
+    setStatus("Missing AJAX config.", "err");
+    return;
+  }
+
+  setButtonsEnabled(false);
+  setStatus("Setting photo-printed: 0 / " + checked.length, "ok");
+
+  for(var i=0; i<checked.length; i++){
+    var cb = checked[i];
+    var row = cb.closest("tr");
+    if(!row){
+      setStatus("Setting photo-printed: " + (i+1) + " / " + checked.length, "ok");
+      await sleep(300);
+      continue;
+    }
+
+    var entryId = parseInt(row.getAttribute("data-entry-id") || cb.value || "0", 10);
+    if(!entryId){
+      setStatus("Setting photo-printed: " + (i+1) + " / " + checked.length, "ok");
+      await sleep(300);
+      continue;
+    }
+
+    try{
+      var form = new FormData();
+      form.append("action", "{$ajaxPhotoComplete}");
+      form.append("nonce", nonce);
+      form.append("entry_id", String(entryId));
+
+      var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
+
+      var json = null;
+      try { json = await resp.json(); } catch(e){ json = null; }
+
+      var payload = (json && typeof json.ok !== "undefined") ? json
+                  : (json && json.success && json.data) ? json.data
+                  : (json && json.data) ? json.data
+                  : { ok:false, message:"Bad response" };
+
+      if(payload && payload.ok){
+
+        var row = cb.closest("tr");
+        var featuresCell = row ? row.querySelector(".ffda-features-cell") : null;
+        addPhotoPrintedBadge(featuresCell);
+
+      } else {
+        var msg = (payload && payload.message) ? String(payload.message) : "Photo printed failed";
+        showAlertDanger(msg);
+      }
+
+    } catch(err){
+      showAlertDanger((err && err.message) ? err.message : "Network error");
+    }
+
+    setStatus("Setting photo-printed: " + (i+1) + " / " + checked.length, "ok");
+    await sleep(300);
+  }
+
+  setStatus("Photo printed finished.", "ok");
+  refresh();
+}
+
+
 
   function fillEditFormFromComponents(cell, components){
     if(!cell || !components) return;
@@ -1728,6 +1891,20 @@ if(printModal){
     featuresCell.appendChild(b);
   }
 
+  function hasPhotoPrintedBadge(featuresCell){
+  if(!featuresCell) return false;
+  return !!featuresCell.querySelector(".ffda-photo-printed-tag");
+}
+
+function addPhotoPrintedBadge(featuresCell){
+  if(!featuresCell) return;
+  if(hasPhotoPrintedBadge(featuresCell)) return;
+
+  var b = document.createElement("span");
+  b.className = "badge text-bg-info ffda-photo-printed-tag";
+  b.textContent = "photo-printed";
+  featuresCell.appendChild(b);
+}
 
   function getGroupValue(){
     // from the filter select in the form
@@ -1831,6 +2008,8 @@ if(printModal){
       if(actionName === "buy"){ runBuySequential(); return; }
       if(actionName === "complete"){ runCompleteSequential(); return; }
       if(actionName === "print"){ runPrintSelected(); return; }
+      if(actionName === "photo-print"){ runPhotoPrint(); return; }
+      if(actionName === "photo-complete"){ runPhotoCompleteSequential(); return; }
 
       showAlertDanger("Action not implemented: " + actionName);
     });
@@ -2158,66 +2337,28 @@ JS;
         $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
         if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
 
-        self::frm_add_label_printed_status($entry_id, self::FIELD_FLAGS);
+        $entryHelper = new FrmEasypostEntryHelper();
+        $entryHelper->updateMultipleMetaField($entry_id, self::FIELD_FLAGS, ['label-printed'], 'add');
 
         wp_send_json(['ok' => true, 'message' => 'Completed']);
     }
 
-    public static function frm_add_label_printed_status(int $entry_id, int $field_id): bool {
-      global $wpdb;
-
-      $table = $wpdb->prefix . 'frm_item_metas';
-
-      $row = $wpdb->get_row(
-          $wpdb->prepare(
-              "SELECT id, meta_value
-              FROM {$table}
-              WHERE item_id = %d AND field_id = %d
-              LIMIT 1",
-              $entry_id,
-              $field_id
-          )
-      );
-
-      $values = [];
-
-      if ($row && ! empty($row->meta_value)) {
-          $unserialized = maybe_unserialize($row->meta_value);
-          if (is_array($unserialized)) {
-              $values = $unserialized;
-          }
-      }
-
-      if (in_array('label-printed', $values, true)) {
-          return true;
-      }
-
-      $values[] = 'label-printed';
-      $serialized = maybe_serialize(array_values($values));
-
-      if ($row) {
-          $wpdb->update(
-              $table,
-              [ 'meta_value' => $serialized ],
-              [ 'id' => (int) $row->id ],
-              [ '%s' ],
-              [ '%d' ]
-          );
-      } else {
-          $wpdb->insert(
-              $table,
-              [
-                  'item_id'    => $entry_id,
-                  'field_id'   => $field_id,
-                  'meta_value' => $serialized,
-                  'created_at' => current_time('mysql'),
-              ],
-              [ '%d', '%d', '%s', '%s' ]
-          );
-      }
-
-      return true;
-    }
+    public static function ajax_set_photo_printed_entry(): void {
+      if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.']); }
+      //if ( ! current_user_can('manage_options') ) { wp_send_json(['ok' => false, 'message' => 'Insufficient permissions.']); }
+  
+      $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+      if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) { wp_send_json(['ok' => false, 'message' => 'Bad nonce.']); }
+  
+      $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+      if ($entry_id <= 0) { wp_send_json(['ok' => false, 'message' => 'Missing entry_id.']); }
+  
+      // Update entry flags to add 'photo-printed'
+      $entryHelper = new FrmEasypostEntryHelper();
+      $entryHelper->updateMultipleMetaField($entry_id, self::FIELD_FLAGS, ['photo-printed'], 'add');
+  
+      wp_send_json(['ok' => true, 'message' => 'Photo printed marked']);
+  }  
 
     public static function ajax_update_address_for_entry(): void {
       if ( ! is_user_logged_in() ) { wp_send_json(['ok' => false, 'message' => 'Not logged in.'], 200); }
