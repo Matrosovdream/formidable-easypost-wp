@@ -16,7 +16,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_TRACKING_CODE   = 344;
     private const FIELD_NOTE            = 5;
 
-    private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframe/';
+    private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframed/';
     private const PAGE_PRINT_LABELS_URL = 'labels-mass-buy-print/';
     private const PAGE_MASS_PHOTO_PRINT_URL = '/formidable-entries-mass-photo/?step=2&entries={ids}';
 
@@ -53,6 +53,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const NONCE_KEY                 = 'ffda_massbuy_labels_nonce';
     private const AJAX_UPDATE_ADDRESS = 'ffda_massbuy_entry_update_address';
     private const AJAX_SET_PHOTO_PRINTED = 'ajax_set_photo_printed_entry';
+    private const AJAX_GET_SHIPMENTS_HTML = 'ffda_massbuy_get_shipments_html';
+
 
 
     public static function init(): void {
@@ -65,6 +67,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         add_action('wp_ajax_' . self::AJAX_SET_COMPLETE_ENTRY, [__CLASS__, 'ajax_set_complete_entry']);
         add_action('wp_ajax_' . self::AJAX_UPDATE_ADDRESS, [__CLASS__, 'ajax_update_address_for_entry']);
         add_action('wp_ajax_' . self::AJAX_SET_PHOTO_PRINTED, [__CLASS__, 'ajax_set_photo_printed_entry']);
+        add_action('wp_ajax_' . self::AJAX_GET_SHIPMENTS_HTML, [__CLASS__, 'ajax_get_shipments_html']);
 
     }
 
@@ -237,6 +240,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 // Get shipments for the entry
                 $shipments = self::getEntryShipments( (int) $entry->id );
 
+                $isActiveLabels = (int) ($shipments['stats']['active'] ?? 0);
                 $delivered = (int) ($shipments['stats']['delivered'] ?? 0);
                 $refunded  = (int) ($shipments['stats']['refunded'] ?? 0);
 
@@ -259,6 +263,9 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 $features = $entryHelper->getEntryMetaValue( $id, self::FIELD_FLAGS );
 
                 // Tracking code data
+                $shipmentData = [];
+                $labelCreated = null;
+
                 $tracking_code = self::meta_val($metas, self::FIELD_TRACKING_CODE);
                 if(!empty($tracking_code)) {
                   $shipmentData = $shipmentHelper->getShipmentByTrackingCode( $tracking_code );
@@ -306,7 +313,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                 echo '<td class="ffda-features-cell">' . $photo_badge;
                 echo $photo_printed_badge;
                 if ( $photo_done === 'photo-done' ) {
-                    echo '<iframe src="' . esc_url($photo_iframe_url) . '" width="150" height="150" scrolling="no" style="margin-top: 10px"></iframe>';
+                    echo '<iframe src="' . esc_url($photo_iframe_url) . '" width="250" height="150" scrolling="no" style="margin-top: 10px"></iframe>';
                 }
                 echo '</td>';
 
@@ -375,7 +382,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
 
                 // Labels
                 echo '<td class="ffda-labels-cell small">';
-                echo '<div>Active: <strong>' . esc_html((string)$delivered) . '</strong></div>';
+                echo '<div>Active: <strong>' . esc_html((string)$isActiveLabels) . '</strong></div>';
 
                 $refund_class = $refunded > 0 ? 'ffda-refunded-alert' : '';
                 echo '<div class="' . esc_attr($refund_class) . '">Refunded: <strong>' . esc_html((string)$refunded) . '</strong></div>';
@@ -600,6 +607,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         'voided' => 0,
         'refunded' => 0,
         'delivered' => 0,
+        'active' => 0
       ];
 
       foreach ( $shipments as $s ) {
@@ -611,11 +619,17 @@ final class FrmEasypostLabelsMassbuyListShortcode {
           } elseif ( $status === 'delivered' ) {
             $stats['delivered']++;
           }
+
+          if( $status !== 'voided' && empty( $s['refund_status'] ) ) {
+            $stats['active']++;
+          }
+
         }
 
         if ( ! empty( $s['refund_status'] ) ) {
           $stats['refunded']++;
         }
+
       }
 
       return [
@@ -715,6 +729,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         $ajaxComplete = esc_js(self::AJAX_SET_COMPLETE_ENTRY);
         $ajaxUpdateAddr = esc_js(self::AJAX_UPDATE_ADDRESS);
         $ajaxPhotoComplete = esc_js(self::AJAX_SET_PHOTO_PRINTED);
+        $ajaxGetShipments = esc_js(self::AJAX_GET_SHIPMENTS_HTML);
 
         $js = <<<JS
 (function(){
@@ -1051,6 +1066,43 @@ document.addEventListener("click", async function(e){
   window.open(url, "_blank", "noopener");
   setStatus("Opening print page for " + shipmentIds.length + " shipment(s)...", "ok");
 }
+
+async function refreshShipmentsRow(entryId, row){
+  if(!entryId || !row) return;
+
+  var ajaxUrl = wrap.getAttribute("data-ajax-url") || "";
+  var nonce   = wrap.getAttribute("data-ajax-nonce") || "";
+  if(!ajaxUrl || !nonce) return;
+
+  var container = row.querySelector(".easypost-shipments-container");
+  if(!container) return;
+
+  try{
+    var fd = new FormData();
+    fd.append("action", "{$ajaxGetShipments}");
+    fd.append("nonce", nonce);
+    fd.append("entry_id", String(entryId));
+
+    var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body: fd });
+    var json = null;
+    try { json = await resp.json(); } catch(e){ json = null; }
+
+    var payload = (json && typeof json.ok !== "undefined") ? json
+                : (json && json.success && json.data) ? json.data
+                : (json && json.data) ? json.data
+                : { ok:false, message:"Bad response" };
+
+    if(payload && payload.ok && typeof payload.html !== "undefined"){
+      container.innerHTML = String(payload.html);
+
+      // OPTIONAL: if you want to refresh counters in the Labels cell later,
+      // you already have payload.stats here.
+    }
+  } catch(err){
+    // silent fail (or showAlertDanger if you prefer)
+  }
+}
+
 
 
   // ---- Update Address helpers ----
@@ -1777,6 +1829,13 @@ if(printModal){
           sel.disabled = true;
           setInlineMsg("ok", msg);
 
+          // ✅ refresh easypost-shipments for this entry row
+          var row = sel.closest("tr");
+          if(row){
+            await refreshShipmentsRow(entryId, row);
+          }
+
+
           // ✅ If updated_tracking_code=true -> add badge in Features cell
           var updatedTracking = false;
           if(payload && typeof payload.updated_tracking_code !== "undefined"){
@@ -2391,6 +2450,35 @@ JS;
   
       wp_send_json(['ok' => true, 'message' => 'Address updated.', 'address' => $addr], 200);
   }
+
+  public static function ajax_get_shipments_html(): void {
+    if ( ! is_user_logged_in() ) {
+        wp_send_json(['ok' => false, 'message' => 'Not logged in.'], 200);
+    }
+
+    $nonce = isset($_POST['nonce']) ? (string) $_POST['nonce'] : '';
+    if ( ! wp_verify_nonce($nonce, self::NONCE_KEY) ) {
+        wp_send_json(['ok' => false, 'message' => 'Bad nonce.'], 200);
+    }
+
+    $entry_id = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
+    if ($entry_id <= 0) {
+        wp_send_json(['ok' => false, 'message' => 'Missing entry_id.'], 200);
+    }
+
+    // Render the updated shipments block
+    $html = do_shortcode('[easypost-shipments entry=' . (int) $entry_id . ']');
+
+    // (optional) also return updated stats if you want to refresh counters later
+    $ship = self::getEntryShipments($entry_id);
+
+    wp_send_json([
+        'ok'   => true,
+        'html' => (string) $html,
+        'stats' => $ship['stats'] ?? [],
+    ], 200);
+}
+
   
 
     // ---------------- HELPERS ----------------
