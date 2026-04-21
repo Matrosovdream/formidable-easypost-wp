@@ -14,6 +14,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
     private const FIELD_PROCESSING_TIME = 211;
     private const FIELD_MAILING_ADDRESS = 37;
     private const FIELD_TRACKING_CODE   = 344;
+    private const FIELD_TRAVEL_DATE       = 348;
     private const FIELD_NOTE            = 5;
 
     private const PHOTO_IFRAME_URL      = 'https://www.unitedpassport.com/photo-iframed/';
@@ -272,6 +273,8 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                   $labelCreated = date('Y-m-d H:i', strtotime($shipmentData['created_at'] ?? ''));
                 }
 
+                $travel_date = self::meta_val($metas, self::FIELD_TRAVEL_DATE);
+
                 $note = trim(self::meta_val($metas, self::FIELD_NOTE));
 
                 $mailing_addr = $entryHelper
@@ -359,7 +362,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                     echo '<div class="d-flex align-items-center gap-2 mt-2">';
                       echo '<button type="button" class="btn btn-sm btn-primary ffda-save-addr-btn">Save</button>';
                       echo '<span class="ffda-addr-save-status text-muted small"></span>';
-                    echo '</div>';
+                    echo '</div>'; 
 
                   echo '</div>';
 
@@ -370,6 +373,21 @@ final class FrmEasypostLabelsMassbuyListShortcode {
                     echo '  </button>';
                     echo '  <div class="ffda-note-text" style="display:none;">' . esc_html($note) . '</div>';
                     echo '</div>';
+                  }
+
+                  // Travel data, if its less than 30 days from today make it red
+                  if (!empty($travel_date)) {
+                    $travel_date_obj = DateTime::createFromFormat('Y-m-d', $travel_date);
+                    $today = new DateTime();
+                    $interval = $today->diff($travel_date_obj);
+                    $days_diff = (int) $interval->format('%r%a');
+
+                    $travel_class = 'text-muted';
+                    if ($days_diff >= 0 && $days_diff >= 30) {
+                        $travel_class = 'text-danger';
+                    }
+
+                    echo 'Travel date:<div class="' . esc_attr($travel_class) . '"> <strong>' . esc_html($travel_date) . '</strong></div>';
                   }
 
                 echo '</td>';
@@ -564,6 +582,7 @@ final class FrmEasypostLabelsMassbuyListShortcode {
               background:#fafafa;
               white-space:pre-wrap;
             }
+            .text-danger { color: #b00020; }
         </style>';
 
         // ✅ Confirmation modal HTML (used for Buy & Complete)
