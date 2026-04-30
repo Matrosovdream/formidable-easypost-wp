@@ -68,13 +68,11 @@ add_shortcode('frm-easypost-labels-print', function($atts = []) {
             gap: 14px;
         }
         #<?php echo esc_attr($uid); ?> .ep-print-img{
-            width: 100%;
+            width: 98%;
             max-width: 900px;
             height: auto;
-            display: block;
-            border: 1px solid #f3f4f6;
-            border-radius: 8px;
-            background: #fff;
+            display: flex;
+            padding:  5px 5px 0px 12px;
         }
 
         /* PRINT: hide everything except this shortcode block */

@@ -82,14 +82,35 @@ class FrmEasypostRateHelper {
             $rates    = [];
             $shipment = null;
 
+            $preset        = sanitize_text_field($params['parcel']['predefined_package'] ?? '');
+            $presetCarrier = strtolower(sanitize_text_field($params['parcel']['predefined_carrier'] ?? ''));
+            $L = floatval($params['parcel']['length'] ?? 0);
+            $W = floatval($params['parcel']['width']  ?? 0);
+            $H = floatval($params['parcel']['height'] ?? 0);
+
             foreach( $carrierAccounts as $account ) {
+
+                // Build parcel from user input
+                $parcel = ['weight' => floatval($params['parcel']['weight'] ?? 1)];
+
+                if ($preset !== '') {
+                    // Preset belongs to a specific carrier; skip the others
+                    if ($presetCarrier && strtolower($account['code']) !== $presetCarrier) {
+                        continue;
+                    }
+                    $parcel['predefined_package'] = $preset;
+                } elseif ($L > 0 && $W > 0 && $H > 0) {
+                    $parcel['length'] = $L;
+                    $parcel['width']  = $W;
+                    $parcel['height'] = $H;
+                } elseif (!empty($account['packages'][0])) {
+                    $parcel['predefined_package'] = $account['packages'][0];
+                }
+
                 $req = [
                     "from_address" => $addresses['from_address'],
                     "to_address"   => $addresses['to_address'],
-                    "parcel"       => [
-                        "weight" => floatval($params['parcel']['weight'] ?? 1),
-                        "predefined_package" => $account['packages'][0],
-                    ],
+                    "parcel"       => $parcel,
                     "carrier_accounts" => [$account['id']],
                     "reference"        => sanitize_text_field($params['entry_id'] ?? ''),
                     // forward the label messages as EasyPost "options" if your API layer supports this

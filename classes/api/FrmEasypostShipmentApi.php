@@ -61,13 +61,6 @@ class FrmEasypostShipmentApi extends FrmEasypostAbstractApi {
 
         if( empty($errors) ) {
             $res = $this->prepareShipmentResponse( $res );
-
-            /**
-             * Fires right after a label is successfully bought.
-             *
-             * @param array $shipment Normalized shipment data (see fields above).
-             */
-            do_action('frm_easypost_label_bought', $label=$res);
         }
 
         return $errors ? $errors : $res;

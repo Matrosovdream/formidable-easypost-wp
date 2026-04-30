@@ -5,7 +5,8 @@ function frm_easypost_label_bought_func($label) {
 
     $general = $label['general'];
 
-    // Add history
+    $helper = new FrmEasypostShipmentHelper;
+
     $payload = [
         'shipment_id' => $general['shipment_id'] ?? null,
         'easypost_shipment_id' => $general['id'] ?? '',
@@ -13,7 +14,6 @@ function frm_easypost_label_bought_func($label) {
         'change_type' => 'buy',
         'description' => ''
     ];
-    $helper = new FrmEasypostShipmentHelper;
     $helper->AddHistoryRecord( $payload );
 
 }

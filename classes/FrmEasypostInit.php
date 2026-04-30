@@ -125,9 +125,6 @@ class FrmEasypostInit {
         // Settings Helper
         require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostSettingsHelper.php';
 
-        // Address Helper  
-        require_once FRM_EAP_BASE_URL.'/classes/helpers/FrmEasypostAddressHelper.php';
-
     }
 
     private function include_cron() {

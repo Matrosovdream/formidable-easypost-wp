@@ -28,6 +28,13 @@ function ep_ajax_easypost_create_label() {
         $shipmentHelper = new FrmEasypostShipmentHelper();
         $shipmentHelper->updateShipmentApi($shipmentId );
 
+        /**
+         * Fires right after a label is successfully bought.
+         *
+         * @param array $shipment Normalized shipment data (see fields above).
+         */
+        do_action('frm_easypost_label_bought', $label);
+
         wp_send_json_success([
             'general' => $label['general'] ?? [],
             'label'   => $label['postage_label']   ?? [],

@@ -54,6 +54,10 @@ function ep_short_easypost_label_popup($atts) {
         '1.13.2'
     );
 
+    // Predefined packages for USPS + FedEx, pulled from EasyPost metadata (cached 24h).
+    $carrierHelper = new FrmEasypostCarrierHelper();
+    $carriersForUi = $carrierHelper->getPredefinedPackages(['usps', 'fedex']);
+
     // Pass data to JS
     wp_localize_script('ep-easypost-popup', 'epPopup', [
         'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -62,6 +66,7 @@ function ep_short_easypost_label_popup($atts) {
             'label_message1' => $label1,
             'label_message2' => $label2,
         ],
+        'carriers' => $carriersForUi,
     ]);
 
     ob_start(); ?>
@@ -179,10 +184,18 @@ function ep_short_easypost_label_popup($atts) {
             <div class="ep-group">
               <div class="ep-legend-wrap"><div class="ep-legend">Parcel</div></div>
               <div class="ep-row">
+                <div class="ep-field">
+                  <label>Package</label>
+                  <select id="ep-parcel-package">
+                    <option value="">Custom dimensions</option>
+                  </select>
+                </div>
                 <div class="ep-field"><label>Weight (Oz)</label><input id="ep-parcel-weight" type="number" step="0.1" value="1"></div>
-                <input id="ep-parcel-length" type="hidden" value="">
-                <input id="ep-parcel-width"  type="hidden" value="">
-                <input id="ep-parcel-height" type="hidden" value="">
+              </div>
+              <div class="ep-row ep-parcel-dims">
+                <div class="ep-field"><label>Length (in)</label><input id="ep-parcel-length" type="number" step="0.01" value=""></div>
+                <div class="ep-field"><label>Width (in)</label> <input id="ep-parcel-width"  type="number" step="0.01" value=""></div>
+                <div class="ep-field"><label>Height (in)</label><input id="ep-parcel-height" type="number" step="0.01" value=""></div>
               </div>
 
               <div class="ep-row-1">
