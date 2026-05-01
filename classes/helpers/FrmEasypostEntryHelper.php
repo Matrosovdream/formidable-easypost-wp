@@ -459,6 +459,23 @@ class FrmEasypostEntryHelper {
             'to_address'   => $addresses['entry_address'] ?? [],
         ];
 
+        // When the caller opts into ground_only (e.g. mass-buy "Ground" checkbox),
+        // pull saved defaults from Settings → General → Default dimensions so
+        // RateHelper sends explicit L/W/H/weight (required for USPS GroundAdvantage).
+        $groundOnly = ! empty( $filters['ground_only'] );
+        if ( $groundOnly ) {
+            $defaultDims = (new FrmEasypostSettingsHelper())->getDefaultDimensions();
+            $parcel = [];
+            foreach ( ['length', 'width', 'height', 'weight'] as $k ) {
+                if ( $defaultDims[$k] !== '' && $defaultDims[$k] > 0 ) {
+                    $parcel[$k] = $defaultDims[$k];
+                }
+            }
+            if ( ! empty( $parcel ) ) {
+                $ratesPayload['parcel'] = $parcel;
+            }
+        }
+
         if( !empty($labelDirection) ) {
             
             $labelDirection = $labelDirectionTypes[$labelDirection] ?? null;
@@ -493,6 +510,13 @@ class FrmEasypostEntryHelper {
                     return strtolower( trim( $rate['carrier'] ?? '' ) ) === $carrierFilter;
                 } );
 
+            }
+
+            // ground_only → keep only USPS GroundAdvantage rates
+            if ( ! empty( $filters['ground_only'] ) ) {
+                $rates = array_filter( $rates, function( $rate ) {
+                    return strtolower( trim( $rate['service'] ?? '' ) ) === 'groundadvantage';
+                } );
             }
 
         }

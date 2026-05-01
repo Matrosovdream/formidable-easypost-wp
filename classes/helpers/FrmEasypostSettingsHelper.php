@@ -20,6 +20,16 @@ class FrmEasypostSettingsHelper {
         return $settings['usps_timezone'] ?? null;
     }
 
+    public function getDefaultDimensions(): array {
+        $settings = $this->getAllSettings();
+        return [
+            'length' => isset($settings['default_length']) && $settings['default_length'] !== '' ? (float)$settings['default_length'] : '',
+            'width'  => isset($settings['default_width'])  && $settings['default_width']  !== '' ? (float)$settings['default_width']  : '',
+            'height' => isset($settings['default_height']) && $settings['default_height'] !== '' ? (float)$settings['default_height'] : '',
+            'weight' => isset($settings['default_weight']) && $settings['default_weight'] !== '' ? (float)$settings['default_weight'] : '',
+        ];
+    }
+
     public function getVoidShipment(): array {
         $opts = $this->getAllSettings();
         return [

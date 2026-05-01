@@ -709,6 +709,11 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</select>';
         echo '</div>';
 
+        echo '<div style="padding-top:24px; display:flex; align-items:center; gap:6px;">';
+        echo '<input type="checkbox" id="ffda_ground_only" style="width:16px; height:16px; margin:0;">';
+        echo '<label for="ffda_ground_only" style="margin:0; cursor:pointer; user-select:none;" title="Use saved default dimensions and return only USPS GroundAdvantage rates">Ground</label>';
+        echo '</div>';
+
         echo '<div class="d-flex flex-wrap gap-2 align-items-end" style="padding-top:22px;">';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="verify" disabled>Verify</button>';
         echo '<button type="button" class="btn btn-outline-secondary btn-sm ffda-mass-btn" data-ffda-action="calculate" disabled>Calculate</button>';
@@ -1696,6 +1701,11 @@ if(printModal){
         var carrier = (carrierSel && carrierSel.value) ? String(carrierSel.value) : "";
         form.append("carrier", carrier);
 
+        var groundChk = qs("#ffda_ground_only", wrap);
+        if (groundChk && groundChk.checked) {
+          form.append("ground_only", "1");
+        }
+
         var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
         var json = null;
         try { json = await resp.json(); } catch(e){ json = null; }
@@ -2275,6 +2285,12 @@ JS;
             $carrier = '';
         }
 
+        $groundOnly = isset($_POST['ground_only']) && in_array((string) $_POST['ground_only'], ['1','on','true'], true);
+        if ( $groundOnly ) {
+            // GroundAdvantage is USPS-only; force the carrier regardless of dropdown.
+            $carrier = 'usps';
+        }
+
         $group = isset($_POST['group']) ? sanitize_text_field((string) $_POST['group']) : 'one';
         $group = ($group === 'two') ? 'two' : 'one';
 
@@ -2298,14 +2314,18 @@ JS;
           $group = FRM_EP_LABEL_DIRECTION_TYPES[$type] ?? null;
           if ( $group ) {
 
-            $filters = [ 
-              'carrier' => $carrier, 
-              'group' => $group 
+            $filters = [
+              'carrier' => $carrier,
+              'group' => $group
             ];
 
             if( $type == 'national_passport' ) {
               // For national_passport, only USPS is allowed
               $filters['carrier'] = 'usps';
+            }
+
+            if ( $groundOnly ) {
+              $filters['ground_only'] = true;
             }
             
             $ratesData = $entryHelper->calculateRatesByEntry(

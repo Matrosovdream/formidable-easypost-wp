@@ -39,6 +39,13 @@ function ep_short_easypost_label_popup($atts) {
     $label1 = isset($opts['label_message1']) ? (string)$opts['label_message1'] : '';
     $label2 = isset($opts['label_message2']) ? (string)$opts['label_message2'] : '';
 
+    // Default parcel dimensions (Settings → General → Default dimensions)
+    $defaultDims = (new FrmEasypostSettingsHelper())->getDefaultDimensions();
+    $defLen = $defaultDims['length'] !== '' ? (string)$defaultDims['length'] : '';
+    $defWid = $defaultDims['width']  !== '' ? (string)$defaultDims['width']  : '';
+    $defHgt = $defaultDims['height'] !== '' ? (string)$defaultDims['height'] : '';
+    $defWgt = $defaultDims['weight'] !== '' ? (string)$defaultDims['weight'] : '1';
+
     // Register + enqueue (scoped to this render)
     wp_enqueue_style('ep-easypost-popup', FRM_EAP_BASE_PATH . 'assets/css/easypost-label-popup.css?time=' . time());
     wp_enqueue_script('ep-easypost-popup', FRM_EAP_BASE_PATH . 'assets/js/easypost-label-popup.js?time=' . time(), ['jquery'], null, true);
@@ -58,6 +65,20 @@ function ep_short_easypost_label_popup($atts) {
     $carrierHelper = new FrmEasypostCarrierHelper();
     $carriersForUi = $carrierHelper->getPredefinedPackages(['usps', 'fedex']);
 
+    // Dimension presets — quick L/W/H fill for known service shapes.
+    // Extend via the `frm_easypost_dimension_presets` filter.
+    $dimensionPresets = apply_filters('frm_easypost_dimension_presets', [
+        [
+            'key'     => 'usps_priority',
+            'label'   => 'USPS Priority (12.5 × 9.5 × 0.25)',
+            'length'  => 12.5,
+            'width'   => 9.5,
+            'height'  => 0.25,
+            'carrier' => 'usps',
+            'service' => 'Priority',
+        ],
+    ]);
+
     // Pass data to JS
     wp_localize_script('ep-easypost-popup', 'epPopup', [
         'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -66,7 +87,8 @@ function ep_short_easypost_label_popup($atts) {
             'label_message1' => $label1,
             'label_message2' => $label2,
         ],
-        'carriers' => $carriersForUi,
+        'carriers'         => $carriersForUi,
+        'dimensionPresets' => array_values($dimensionPresets),
     ]);
 
     ob_start(); ?>
@@ -190,12 +212,12 @@ function ep_short_easypost_label_popup($atts) {
                     <option value="">Custom dimensions</option>
                   </select>
                 </div>
-                <div class="ep-field"><label>Weight (Oz)</label><input id="ep-parcel-weight" type="number" step="0.1" value="1"></div>
+                <div class="ep-field"><label>Weight (Oz)</label><input id="ep-parcel-weight" type="number" step="0.1" value="<?php echo esc_attr($defWgt); ?>"></div>
               </div>
               <div class="ep-row ep-parcel-dims">
-                <div class="ep-field"><label>Length (in)</label><input id="ep-parcel-length" type="number" step="0.01" value=""></div>
-                <div class="ep-field"><label>Width (in)</label> <input id="ep-parcel-width"  type="number" step="0.01" value=""></div>
-                <div class="ep-field"><label>Height (in)</label><input id="ep-parcel-height" type="number" step="0.01" value=""></div>
+                <div class="ep-field"><label>Length (in)</label><input id="ep-parcel-length" type="number" step="0.01" value="<?php echo esc_attr($defLen); ?>"></div>
+                <div class="ep-field"><label>Width (in)</label> <input id="ep-parcel-width"  type="number" step="0.01" value="<?php echo esc_attr($defWid); ?>"></div>
+                <div class="ep-field"><label>Height (in)</label><input id="ep-parcel-height" type="number" step="0.01" value="<?php echo esc_attr($defHgt); ?>"></div>
               </div>
 
               <div class="ep-row-1">

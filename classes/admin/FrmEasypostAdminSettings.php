@@ -235,6 +235,52 @@ final class FrmEasypostAdminSettings {
             ]
         );
 
+        // Section: Default dimensions (parcel L/W/H + weight)
+        add_settings_section(
+            'frm_easypost_default_dims',
+            __( 'Default dimensions', 'frm-easypost' ),
+            function () {
+                echo '<p>' . esc_html__( 'Default parcel dimensions and weight used to prefill the Create Label popup.', 'frm-easypost' ) . '</p>';
+            },
+            'frm_easypost'
+        );
+
+        add_settings_field(
+            'default_length',
+            __( 'Length (in)', 'frm-easypost' ),
+            [ $this, 'field_float' ],
+            'frm_easypost',
+            'frm_easypost_default_dims',
+            [ 'key' => 'default_length', 'placeholder' => 'e.g. 12.5', 'step' => '0.01', 'min' => 0 ]
+        );
+
+        add_settings_field(
+            'default_width',
+            __( 'Width (in)', 'frm-easypost' ),
+            [ $this, 'field_float' ],
+            'frm_easypost',
+            'frm_easypost_default_dims',
+            [ 'key' => 'default_width', 'placeholder' => 'e.g. 9.5', 'step' => '0.01', 'min' => 0 ]
+        );
+
+        add_settings_field(
+            'default_height',
+            __( 'Height (in)', 'frm-easypost' ),
+            [ $this, 'field_float' ],
+            'frm_easypost',
+            'frm_easypost_default_dims',
+            [ 'key' => 'default_height', 'placeholder' => 'e.g. 0.25', 'step' => '0.01', 'min' => 0 ]
+        );
+
+        add_settings_field(
+            'default_weight',
+            __( 'Weight (oz)', 'frm-easypost' ),
+            [ $this, 'field_float' ],
+            'frm_easypost',
+            'frm_easypost_default_dims',
+            [ 'key' => 'default_weight', 'placeholder' => 'e.g. 1', 'step' => '0.1', 'min' => 0 ]
+        );
+
         // --- Section: Shipment management
         add_settings_section(
             'frm_easypost_ship_mgmt',
@@ -311,7 +357,13 @@ final class FrmEasypostAdminSettings {
             'label_message2'     => '',
             'allowed_carriers'   => [],
             'usps_timezone'      => 0,
-    
+
+            // NEW: Default parcel dimensions
+            'default_length'     => '',
+            'default_width'      => '',
+            'default_height'     => '',
+            'default_weight'     => '',
+
             // NEW: Shipment management
             'void_statuses'      => [],  // array of status keys
             'void_after_days'    => 0,   // int >= 0; 0 = disabled
@@ -912,6 +964,20 @@ final class FrmEasypostAdminSettings {
             $output['usps_timezone'] = $tz;
         }
 
+        // NEW: default parcel dimensions (floats; empty string allowed = "no default")
+        foreach ( ['default_length', 'default_width', 'default_height', 'default_weight'] as $dimKey ) {
+            if ( array_key_exists( $dimKey, $input ) ) {
+                $raw = trim( (string) $input[ $dimKey ] );
+                if ( $raw === '' ) {
+                    $output[ $dimKey ] = '';
+                } else {
+                    $val = (float) $raw;
+                    if ( $val < 0 ) $val = 0;
+                    $output[ $dimKey ] = $val;
+                }
+            }
+        }
+
         // --- Shipment management: void_statuses
         if ( isset( $input['void_statuses'] ) ) {
             $validKeys = array_keys( $this->get_status_options() );
@@ -1036,6 +1102,36 @@ final class FrmEasypostAdminSettings {
 
         $val = $this->get_settings()[ $key ] ?? '';
         $val = is_numeric($val) ? (string)(int)$val : '';
+
+        printf(
+            '<input type="number" name="%1$s[%2$s]" value="%3$s" class="regular-text" placeholder="%4$s" %5$s %6$s %7$s />',
+            esc_attr( self::OPTION_NAME ),
+            esc_attr( $key ),
+            esc_attr( $val ),
+            esc_attr( $ph ),
+            $min !== '' ? 'min="'.esc_attr($min).'"' : '',
+            $max !== '' ? 'max="'.esc_attr($max).'"' : '',
+            $step !== '' ? 'step="'.esc_attr($step).'"' : ''
+        );
+
+        if ( $help ) {
+            echo '<p class="description" style="margin:4px 0 0;">' . esc_html( $help ) . '</p>';
+        }
+    }
+
+    /**
+     * Field: number input that accepts decimals (does not int-cast).
+     */
+    public function field_float( array $args = [] ): void {
+        $key   = $args['key'] ?? '';
+        $ph    = $args['placeholder'] ?? '';
+        $min   = array_key_exists('min', $args) ? (string)$args['min'] : '';
+        $max   = array_key_exists('max', $args) ? (string)$args['max'] : '';
+        $step  = array_key_exists('step', $args) ? (string)$args['step'] : '0.01';
+        $help  = $args['help'] ?? '';
+
+        $val = $this->get_settings()[ $key ] ?? '';
+        $val = is_numeric($val) ? (string)(float)$val : '';
 
         printf(
             '<input type="number" name="%1$s[%2$s]" value="%3$s" class="regular-text" placeholder="%4$s" %5$s %6$s %7$s />',
