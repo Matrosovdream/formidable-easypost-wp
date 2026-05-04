@@ -140,6 +140,14 @@ class FrmEasypostRateHelper {
                 }
             }
 
+            // ground_only → keep only USPS GroundAdvantage rates
+            if ( ! empty( $params['ground_only'] ) ) {
+                $rates = array_filter( $rates, function( $rate ) {
+                    return strtolower( trim( $rate['service'] ?? '' ) ) === 'groundadvantage';
+                } );
+                $rates = array_values( $rates );
+            }
+
             // Exclude rates based on processing time rules
             if( ! empty( $rulesSetFinal ) ) {
                 $ratesFiltered = [];

@@ -129,6 +129,20 @@
       const $sel = $('#ep-parcel-package');
       if (!$sel.length) return;
       $sel.find('optgroup').remove();
+
+      // Quick dimension presets (fill L/W/H, no predefined_package)
+      const dims = (epPopup && Array.isArray(epPopup.dimensionPresets)) ? epPopup.dimensionPresets : [];
+      if (dims.length) {
+        const $g = $('<optgroup>', { label: 'Quick dimensions' });
+        dims.forEach(function(d){
+          const $opt = $('<option>', { value: 'dim:' + d.key, text: d.label });
+          $opt.data('preset', d);
+          $g.append($opt);
+        });
+        $sel.append($g);
+      }
+
+      // Carrier predefined packages
       const carriers = (epPopup && Array.isArray(epPopup.carriers)) ? epPopup.carriers : [];
       carriers.forEach(function(c){
         if (!c.packages || !c.packages.length) return;
@@ -142,17 +156,62 @@
       togglePackageDims();
     }
     function togglePackageDims(){
-      const usingPreset = !!$('#ep-parcel-package').val();
-      $('.ep-parcel-dims').toggle(!usingPreset);
+      const $sel = $('#ep-parcel-package');
+      const v = String($sel.val() || '');
+      if (v.indexOf('dim:') === 0) {
+        // Fill L/W/H from the preset, keep them visible & editable
+        const preset = $sel.find('option:selected').data('preset');
+        if (preset) {
+          $('#ep-parcel-length').val(preset.length);
+          $('#ep-parcel-width').val(preset.width);
+          $('#ep-parcel-height').val(preset.height);
+        }
+        $('.ep-parcel-dims').show();
+      } else if (v) {
+        // Carrier predefined package — dims not used
+        $('.ep-parcel-dims').hide();
+      } else {
+        // Custom dims
+        $('.ep-parcel-dims').show();
+      }
     }
     $(document).on('change', '#ep-parcel-package', togglePackageDims);
+
+    // ---- Ground toggle: prefill dims from defaults, recalc if both addresses ready ----
+    function epAddressesReady(){
+      const fromOk = !!($('#ep-from-street1').val() || '').trim() && !!($('#ep-from-zip').val() || '').trim();
+      const toOk   = !!($('#ep-to-street1').val()   || '').trim() && !!($('#ep-to-zip').val()   || '').trim();
+      return fromOk && toOk;
+    }
+    $(document).on('change', '#ep-ground-toggle', function(){
+      const src = this.checked
+        ? ((epPopup && epPopup.defaultDimensions) ? epPopup.defaultDimensions : {})
+        : ((epPopup && epPopup.initialDimensions) ? epPopup.initialDimensions : {});
+
+      const apply = function(sel, v){
+        const num = parseFloat(v);
+        $(sel).val((!isNaN(num) && num > 0) ? num : '');
+      };
+      apply('#ep-parcel-length', src.length);
+      apply('#ep-parcel-width',  src.width);
+      apply('#ep-parcel-height', src.height);
+      apply('#ep-parcel-weight', src.weight);
+
+      if (epAddressesReady()) {
+        $('#ep-ep-calc').trigger('click');
+      }
+    });
 
     // ---- Form reader ----
     function readForm(){
       const pkg = String($('#ep-parcel-package').val() || '');
-      const idx = pkg.indexOf(':');
-      const presetCarrier = idx >= 0 ? pkg.slice(0, idx) : '';
-      const presetName    = idx >= 0 ? pkg.slice(idx + 1) : '';
+      let presetCarrier = '', presetName = '';
+      if (pkg && pkg.indexOf('dim:') !== 0) {
+        // dim:* presets only fill L/W/H — they don't send a predefined_package
+        const idx = pkg.indexOf(':');
+        presetCarrier = idx >= 0 ? pkg.slice(0, idx) : '';
+        presetName    = idx >= 0 ? pkg.slice(idx + 1) : '';
+      }
       return {
         entry_id:  $('#ep-entry-id').val(),
         from_address: {
@@ -184,6 +243,7 @@
         label_message1: $('#ep-label-msg1').val(),
         label_message2: $('#ep-label-msg2').val(),
         label_date: epGetLabelDateIso(),
+        ground_only: $('#ep-ground-toggle').is(':checked') ? 1 : 0,
       };
     }
   

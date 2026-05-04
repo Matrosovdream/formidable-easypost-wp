@@ -135,6 +135,19 @@
 .ep-btn-primary{background:#2563eb;color:#fff}
 .ep-btn-secondary{background:#f3f4f6}
 #ep-ep-rates-wrap{margin-top:10px}
+.ep-ground-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-top:8px;
+  font-size:13px;
+  color:#374151;
+  cursor:pointer;
+}
+.ep-ground-toggle input[type="checkbox"]{
+  width:auto;
+  margin:0;
+}
 #ep-ep-status{margin-top:10px;font-size:13px}
 #ep-ep-status.ok{color:#0a7a2b}
 #ep-ep-status.err{color:#b00020}

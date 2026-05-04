@@ -2,6 +2,11 @@
 
 class FrmEasypostSettingsHelper {
 
+    const DEFAULT_LENGTH = 0;
+    const DEFAULT_WIDTH  = 0;
+    const DEFAULT_HEIGHT = 0;
+    const DEFAULT_WEIGHT = 1;
+
     public function getCarrierAccounts() {
         $settings = $this->getAllSettings();
        
@@ -23,10 +28,10 @@ class FrmEasypostSettingsHelper {
     public function getDefaultDimensions(): array {
         $settings = $this->getAllSettings();
         return [
-            'length' => isset($settings['default_length']) && $settings['default_length'] !== '' ? (float)$settings['default_length'] : '',
-            'width'  => isset($settings['default_width'])  && $settings['default_width']  !== '' ? (float)$settings['default_width']  : '',
-            'height' => isset($settings['default_height']) && $settings['default_height'] !== '' ? (float)$settings['default_height'] : '',
-            'weight' => isset($settings['default_weight']) && $settings['default_weight'] !== '' ? (float)$settings['default_weight'] : '',
+            'length' => isset($settings['default_length']) && $settings['default_length'] !== '' ? (float)$settings['default_length'] : (float)self::DEFAULT_LENGTH,
+            'width'  => isset($settings['default_width'])  && $settings['default_width']  !== '' ? (float)$settings['default_width']  : (float)self::DEFAULT_WIDTH,
+            'height' => isset($settings['default_height']) && $settings['default_height'] !== '' ? (float)$settings['default_height'] : (float)self::DEFAULT_HEIGHT,
+            'weight' => isset($settings['default_weight']) && $settings['default_weight'] !== '' ? (float)$settings['default_weight'] : (float)self::DEFAULT_WEIGHT,
         ];
     }
 

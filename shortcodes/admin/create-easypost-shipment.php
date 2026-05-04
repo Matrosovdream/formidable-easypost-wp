@@ -39,12 +39,21 @@ function ep_short_easypost_label_popup($atts) {
     $label1 = isset($opts['label_message1']) ? (string)$opts['label_message1'] : '';
     $label2 = isset($opts['label_message2']) ? (string)$opts['label_message2'] : '';
 
-    // Default parcel dimensions (Settings → General → Default dimensions)
+    // Default parcel dimensions (Settings → General → Default dimensions, with class const fallbacks).
+    // Used by the "Ground" checkbox (checked state) — applied via JS, not rendered into the form.
     $defaultDims = (new FrmEasypostSettingsHelper())->getDefaultDimensions();
-    $defLen = $defaultDims['length'] !== '' ? (string)$defaultDims['length'] : '';
-    $defWid = $defaultDims['width']  !== '' ? (string)$defaultDims['width']  : '';
-    $defHgt = $defaultDims['height'] !== '' ? (string)$defaultDims['height'] : '';
-    $defWgt = $defaultDims['weight'] !== '' ? (string)$defaultDims['weight'] : '1';
+
+    $onloadDimensions = [
+        'weight' => 1,
+        'length' => 0,
+        'width'  => 0,
+        'height' => 0,
+    ];
+
+    $initialLen    = (float)$onloadDimensions['length'] > 0 ? (string)$onloadDimensions['length'] : '';
+    $initialWid    = (float)$onloadDimensions['width']  > 0 ? (string)$onloadDimensions['width']  : '';
+    $initialHgt    = (float)$onloadDimensions['height'] > 0 ? (string)$onloadDimensions['height'] : '';
+    $initialWeight = (float)$onloadDimensions['weight'] > 0 ? (string)$onloadDimensions['weight'] : '';
 
     // Register + enqueue (scoped to this render)
     wp_enqueue_style('ep-easypost-popup', FRM_EAP_BASE_PATH . 'assets/css/easypost-label-popup.css?time=' . time());
@@ -87,8 +96,20 @@ function ep_short_easypost_label_popup($atts) {
             'label_message1' => $label1,
             'label_message2' => $label2,
         ],
-        'carriers'         => $carriersForUi,
-        'dimensionPresets' => array_values($dimensionPresets),
+        'carriers'          => $carriersForUi,
+        'dimensionPresets'  => array_values($dimensionPresets),
+        'defaultDimensions' => [
+            'length' => (float)$defaultDims['length'],
+            'width'  => (float)$defaultDims['width'],
+            'height' => (float)$defaultDims['height'],
+            'weight' => (float)$defaultDims['weight'],
+        ],
+        'initialDimensions' => [
+            'length' => (float)$onloadDimensions['length'],
+            'width'  => (float)$onloadDimensions['width'],
+            'height' => (float)$onloadDimensions['height'],
+            'weight' => (float)$onloadDimensions['weight'],
+        ],
     ]);
 
     ob_start(); ?>
@@ -212,12 +233,12 @@ function ep_short_easypost_label_popup($atts) {
                     <option value="">Custom dimensions</option>
                   </select>
                 </div>
-                <div class="ep-field"><label>Weight (Oz)</label><input id="ep-parcel-weight" type="number" step="0.1" value="<?php echo esc_attr($defWgt); ?>"></div>
+                <div class="ep-field"><label>Weight (Oz)</label><input id="ep-parcel-weight" type="number" step="0.1" value="<?php echo esc_attr($initialWeight); ?>"></div>
               </div>
               <div class="ep-row ep-parcel-dims">
-                <div class="ep-field"><label>Length (in)</label><input id="ep-parcel-length" type="number" step="0.01" value="<?php echo esc_attr($defLen); ?>"></div>
-                <div class="ep-field"><label>Width (in)</label> <input id="ep-parcel-width"  type="number" step="0.01" value="<?php echo esc_attr($defWid); ?>"></div>
-                <div class="ep-field"><label>Height (in)</label><input id="ep-parcel-height" type="number" step="0.01" value="<?php echo esc_attr($defHgt); ?>"></div>
+                <div class="ep-field"><label>Length (in)</label><input id="ep-parcel-length" type="number" step="0.01" value="<?php echo esc_attr($initialLen); ?>"></div>
+                <div class="ep-field"><label>Width (in)</label> <input id="ep-parcel-width"  type="number" step="0.01" value="<?php echo esc_attr($initialWid); ?>"></div>
+                <div class="ep-field"><label>Height (in)</label><input id="ep-parcel-height" type="number" step="0.01" value="<?php echo esc_attr($initialHgt); ?>"></div>
               </div>
 
               <div class="ep-row-1">
@@ -269,6 +290,9 @@ function ep_short_easypost_label_popup($atts) {
                 <select id="ep-ep-rates">
                   <option value="">No rates yet</option>
                 </select>
+                <label class="ep-ground-toggle">
+                  <input type="checkbox" id="ep-ground-toggle"> Ground
+                </label>
               </div>
               <div id="ep-ep-actions">
                 <button id="ep-ep-calc" class="ep-btn ep-btn-secondary" type="button">Calculate</button>
