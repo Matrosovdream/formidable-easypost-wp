@@ -709,9 +709,13 @@ final class FrmEasypostLabelsMassbuyListShortcode {
         echo '</select>';
         echo '</div>';
 
-        echo '<div style="padding-top:24px; display:flex; align-items:center; gap:6px;">';
-        echo '<input type="checkbox" id="ffda_ground_only" style="width:16px; height:16px; margin:0;">';
-        echo '<label for="ffda_ground_only" style="margin:0; cursor:pointer; user-select:none;" title="Use saved default dimensions and return only USPS GroundAdvantage rates">Ground</label>';
+        echo '<div style="padding-top:24px; display:flex; align-items:center; gap:14px;">';
+        echo '<label style="margin:0; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px;" title="Use saved default dimensions and return only USPS GroundAdvantage rates">';
+        echo '<input type="checkbox" class="ffda-rate-filter-cb" id="ffda_rate_ground" value="ground" style="width:16px; height:16px; margin:0;"> Ground';
+        echo '</label>';
+        echo '<label style="margin:0; cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; display: none;" title="Use saved default dimensions and return only USPS First Class rates on Flat / FlatRateEnvelope packaging">';
+        echo '<input type="checkbox" class="ffda-rate-filter-cb" id="ffda_rate_first" value="first_class" style="width:16px; height:16px; margin:0;"> First class';
+        echo '</label>';
         echo '</div>';
 
         echo '<div class="d-flex flex-wrap gap-2 align-items-end" style="padding-top:22px;">';
@@ -780,6 +784,18 @@ final class FrmEasypostLabelsMassbuyListShortcode {
   var buttons = qsa(".ffda-mass-btn", wrap);
   var carrierSel = qs("#ffda_carrier_select", wrap);
   var statusEl = qs("#ffda_mass_action_status", wrap);
+
+  // Mutually-exclusive rate-filter checkboxes (Ground / First class).
+  // Checking one unchecks the other; user can also leave both unchecked.
+  qsa(".ffda-rate-filter-cb", wrap).forEach(function(cb){
+    cb.addEventListener("change", function(){
+      if (this.checked) {
+        qsa(".ffda-rate-filter-cb", wrap).forEach(function(other){
+          if (other !== cb) { other.checked = false; }
+        });
+      }
+    });
+  });
 
   function setButtonsEnabled(enabled){
     buttons.forEach(function(btn){ btn.disabled = !enabled; });
@@ -1701,10 +1717,11 @@ if(printModal){
         var carrier = (carrierSel && carrierSel.value) ? String(carrierSel.value) : "";
         form.append("carrier", carrier);
 
-        var groundChk = qs("#ffda_ground_only", wrap);
-        if (groundChk && groundChk.checked) {
-          form.append("ground_only", "1");
-        }
+        var rateFilter = "";
+        var rfChecked = wrap.querySelector('.ffda-rate-filter-cb:checked');
+        if (rfChecked) { rateFilter = String(rfChecked.value || ""); }
+        if (rateFilter === "ground")      { form.append("ground_only", "1"); }
+        if (rateFilter === "first_class") { form.append("first_class", "1"); }
 
         var resp = await fetch(ajaxUrl, { method:"POST", credentials:"same-origin", body:form });
         var json = null;
@@ -2286,8 +2303,9 @@ JS;
         }
 
         $groundOnly = isset($_POST['ground_only']) && in_array((string) $_POST['ground_only'], ['1','on','true'], true);
-        if ( $groundOnly ) {
-            // GroundAdvantage is USPS-only; force the carrier regardless of dropdown.
+        $firstClass = isset($_POST['first_class']) && in_array((string) $_POST['first_class'], ['1','on','true'], true);
+        if ( $groundOnly || $firstClass ) {
+            // GroundAdvantage / First Class are USPS-only; force the carrier regardless of dropdown.
             $carrier = 'usps';
         }
 
@@ -2326,6 +2344,10 @@ JS;
 
             if ( $groundOnly ) {
               $filters['ground_only'] = true;
+            }
+
+            if ( $firstClass ) {
+              $filters['first_class'] = true;
             }
             
             $ratesData = $entryHelper->calculateRatesByEntry(
