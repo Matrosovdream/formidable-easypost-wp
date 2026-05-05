@@ -290,9 +290,14 @@ function ep_short_easypost_label_popup($atts) {
                 <select id="ep-ep-rates">
                   <option value="">No rates yet</option>
                 </select>
-                <label class="ep-ground-toggle">
-                  <input type="checkbox" id="ep-ground-toggle"> Ground
-                </label>
+                <div class="ep-rate-filter-wrap">
+                  <label class="ep-rate-filter-opt">
+                    <input type="checkbox" class="ep-rate-filter-cb" id="ep-rate-filter-ground" value="ground"> Ground
+                  </label>
+                  <label class="ep-rate-filter-opt" style="display: none;">
+                    <input type="checkbox" class="ep-rate-filter-cb" id="ep-rate-filter-first" value="first_class"> First class
+                  </label>
+                </div>
               </div>
               <div id="ep-ep-actions">
                 <button id="ep-ep-calc" class="ep-btn ep-btn-secondary" type="button">Calculate</button>
